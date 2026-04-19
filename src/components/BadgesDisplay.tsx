@@ -1,31 +1,17 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { useApp } from '@/contexts/AppContext';
 import { BADGES } from '@/lib/badges';
 import { motion } from 'framer-motion';
-
-interface UserBadge {
-  badge_id: string;
-  awarded_at: string;
-}
+import { listBadges } from '@/lib/localdb/repository';
 
 const BadgesDisplay = () => {
-  const { user } = useAuth();
   const { lang } = useApp();
   const [earnedBadges, setEarnedBadges] = useState<Set<string>>(new Set());
   const isAr = lang === 'ar';
 
   useEffect(() => {
-    if (!user) return;
-    supabase
-      .from('user_badges')
-      .select('badge_id')
-      .eq('user_id', user.id)
-      .then(({ data }) => {
-        if (data) setEarnedBadges(new Set(data.map((b: UserBadge) => b.badge_id)));
-      });
-  }, [user]);
+    listBadges().then(ids => setEarnedBadges(new Set(ids)));
+  }, []);
 
   return (
     <div className="max-w-md mx-auto mt-6">

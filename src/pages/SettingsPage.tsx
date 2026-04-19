@@ -1,102 +1,53 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { motion } from 'framer-motion';
-import { User, Lock, Globe, Eye, EyeOff, Check, ShieldCheck, Shield, AlertTriangle } from 'lucide-react';
+import { User, Globe, Check, Shield, AlertTriangle, Trash2, Cpu } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Lang, langNames } from '@/lib/i18n';
-import { strongPasswordSchema, getPasswordStrength, getPasswordStrengthAr } from '@/lib/passwordValidation';
-import { logSecurityEvent } from '@/lib/securityLogger';
+import {
+  getPreferenceEncrypted,
+  setPreferenceEncrypted,
+  clearMessages,
+} from '@/lib/localdb/repository';
+import { db } from '@/lib/localdb/db';
+import LocalAIStatus from '@/components/LocalAIStatus';
 
 const SettingsPage = () => {
   const { t, lang, setLang } = useApp();
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [displayName, setDisplayName] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const passwordStrength = getPasswordStrength(newPassword);
-  const passwordValidation = newPassword ? strongPasswordSchema.safeParse(newPassword) : null;
-
   useEffect(() => {
-    if (user) {
-      supabase
-        .from('profiles')
-        .select('display_name')
-        .eq('id', user.id)
-        .single()
-        .then(({ data }) => {
-          if (data?.display_name) setDisplayName(data.display_name);
-        });
-    }
-  }, [user]);
+    getPreferenceEncrypted('displayName').then(v => {
+      if (v) setDisplayName(v);
+    });
+  }, []);
 
   const handleSaveName = async () => {
-    if (!user) return;
     setSaving(true);
-    const { error } = await supabase
-      .from('profiles')
-      .update({ display_name: displayName })
-      .eq('id', user.id);
+    await setPreferenceEncrypted('displayName', displayName);
     setSaving(false);
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success(t.saved);
-    }
+    toast.success(t.saved);
   };
 
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newPassword) return;
-
-    // Validate strong password
-    const result = strongPasswordSchema.safeParse(newPassword);
-    if (!result.success) {
-      toast.error(result.error.errors[0].message);
-      return;
-    }
-
-    setSaving(true);
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    setSaving(false);
-    if (error) {
-      toast.error(error.message);
-    } else {
-      logSecurityEvent({
-        eventType: 'password_changed',
-        description: 'Password changed successfully',
-      });
-      toast.success(t.saved);
-      setNewPassword('');
-    }
-  };
-
-  const handleLangChange = async (newLang: Lang) => {
+  const handleLangChange = (newLang: Lang) => {
     setLang(newLang);
-    if (user) {
-      await supabase
-        .from('profiles')
-        .update({ lang: newLang })
-        .eq('id', user.id);
-    }
   };
 
-  const handleSignOutAll = async () => {
-    const { error } = await supabase.auth.signOut({ scope: 'global' });
-    if (error) {
-      toast.error(error.message);
-    } else {
-      logSecurityEvent({
-        eventType: 'logout',
-        description: 'Signed out from all devices',
-      });
-      toast.success(lang === 'ar' ? 'تم تسجيل الخروج من جميع الأجهزة' : 'Signed out from all devices');
-    }
+  const handleWipe = async () => {
+    const confirmMsg = lang === 'ar'
+      ? 'سيتم حذف كل بياناتك المحلية (الرسائل، التقدم، الشارات). متأكد؟'
+      : 'This will permanently delete all your local data (messages, progress, badges). Continue?';
+    if (!window.confirm(confirmMsg)) return;
+    await Promise.all([
+      clearMessages(),
+      db.progress.clear(),
+      db.badges.clear(),
+      db.preferences.clear(),
+    ]);
+    toast.success(lang === 'ar' ? 'تم الحذف' : 'Wiped');
   };
 
   const langs: Lang[] = ['ar', 'en', 'fr', 'kab', 'zh'];
@@ -158,84 +109,36 @@ const SettingsPage = () => {
           </div>
         </div>
 
-        {/* Change Password with strength indicator */}
+        {/* Local AI status */}
         <div className="bg-card border border-border rounded-2xl p-5">
           <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-            <Lock className="w-4 h-4" />
-            {t.changePassword}
+            <Cpu className="w-4 h-4" />
+            {lang === 'ar' ? 'الذكاء الاصطناعي المحلي' : 'Local AI'}
           </h3>
-          <form onSubmit={handleChangePassword} className="space-y-3">
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={newPassword}
-                onChange={e => setNewPassword(e.target.value)}
-                placeholder={lang === 'ar' ? 'كلمة مرور قوية (12 حرف على الأقل)' : 'Strong password (min 12 chars)'}
-                className="w-full px-4 pe-10 py-2.5 bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground text-sm outline-none focus:ring-2 focus:ring-primary/30"
-                dir="ltr"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute top-2.5 end-3 text-muted-foreground"
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-
-            {/* Password strength indicator */}
-            {newPassword && (
-              <div className="space-y-2">
-                <div className="flex gap-1">
-                  {[0, 1, 2, 3].map(i => (
-                    <div
-                      key={i}
-                      className="h-1.5 flex-1 rounded-full transition-all"
-                      style={{
-                        backgroundColor: i <= passwordStrength.score - 1
-                          ? passwordStrength.color
-                          : 'hsl(var(--secondary))',
-                      }}
-                    />
-                  ))}
-                </div>
-                <p className="text-xs" style={{ color: passwordStrength.color }}>
-                  {lang === 'ar' ? getPasswordStrengthAr(passwordStrength.label) : passwordStrength.label}
-                </p>
-                {passwordValidation && !passwordValidation.success && (
-                  <ul className="text-xs text-muted-foreground space-y-0.5">
-                    {passwordValidation.error.errors.map((err, i) => (
-                      <li key={i} className="text-destructive">• {err.message}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={saving || !passwordValidation?.success}
-              className="w-full py-2.5 rounded-xl gradient-primary text-primary-foreground text-sm font-medium disabled:opacity-50"
-            >
-              {t.changePassword}
-            </button>
-          </form>
+          <LocalAIStatus />
         </div>
 
-        {/* Security: Sign out all devices */}
+        {/* Privacy / wipe */}
         <div className="bg-card border border-border rounded-2xl p-5">
           <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4" />
-            {lang === 'ar' ? 'الأمان' : 'Security'}
+            <Shield className="w-4 h-4" />
+            {lang === 'ar' ? 'الخصوصية' : 'Privacy'}
           </h3>
+          <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+            {lang === 'ar'
+              ? 'كل بياناتك مخزّنة على جهازك فقط ومُشفّرة بـ AES-GCM. لا تُرسل إلى أي خادم.'
+              : 'All your data lives on this device only, encrypted with AES-GCM. Nothing is sent to any server.'}
+          </p>
           <button
-            onClick={handleSignOutAll}
-            className="w-full py-2.5 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm font-medium hover:bg-destructive/20 transition-colors"
+            onClick={handleWipe}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm font-medium hover:bg-destructive/20 transition-colors"
           >
-            {lang === 'ar' ? 'تسجيل الخروج من جميع الأجهزة' : 'Sign out from all devices'}
+            <Trash2 className="w-4 h-4" />
+            {lang === 'ar' ? 'حذف كل بياناتي المحلية' : 'Wipe all my local data'}
           </button>
         </div>
-        {/* Legal Links */}
+
+        {/* Legal */}
         <div className="bg-card border border-border rounded-2xl p-5">
           <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
             <Shield className="w-4 h-4" />

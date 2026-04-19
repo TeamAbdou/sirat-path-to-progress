@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { challenges } from '@/lib/challenges';
 import { TranslationKey } from '@/lib/i18n';
 import { motion } from 'framer-motion';
 import { Calendar, Flame, Trophy, CheckCircle, Share2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import BadgesDisplay from '@/components/BadgesDisplay';
+import { getProgress, upsertProgress, resetProgress as resetProgressDb } from '@/lib/localdb/repository';
 
 interface ProgressData {
   challenge_id: string;
@@ -20,7 +19,6 @@ interface ProgressData {
 
 const ProgressPage = () => {
   const { t, lang } = useApp();
-  const { user } = useAuth();
   const [selectedChallenge, setSelectedChallenge] = useState<string | null>(null);
   const [progress, setProgress] = useState<ProgressData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -29,44 +27,23 @@ const ProgressPage = () => {
   const isMarkedToday = progress?.last_marked === today;
 
   useEffect(() => {
-    if (!user || !selectedChallenge) return;
-    loadProgress();
-  }, [user, selectedChallenge]);
-
-  const loadProgress = async () => {
-    if (!user || !selectedChallenge) return;
+    if (!selectedChallenge) return;
     setLoading(true);
-    const { data } = await supabase
-      .from('user_progress')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('challenge_id', selectedChallenge)
-      .maybeSingle();
-
-    if (data) {
+    getProgress(selectedChallenge).then(row => {
       setProgress({
-        challenge_id: data.challenge_id,
-        days_clean: data.days_clean ?? 0,
-        current_streak: data.current_streak ?? 0,
-        best_streak: data.best_streak ?? 0,
-        tips_followed: data.tips_followed ?? 0,
-        last_marked: data.last_marked,
+        challenge_id: row.challengeId,
+        days_clean: row.daysClean,
+        current_streak: row.currentStreak,
+        best_streak: row.bestStreak,
+        tips_followed: row.tipsFollowed,
+        last_marked: row.lastMarked,
       });
-    } else {
-      setProgress({
-        challenge_id: selectedChallenge,
-        days_clean: 0,
-        current_streak: 0,
-        best_streak: 0,
-        tips_followed: 0,
-        last_marked: null,
-      });
-    }
-    setLoading(false);
-  };
+      setLoading(false);
+    });
+  }, [selectedChallenge]);
 
   const markToday = async () => {
-    if (!user || !selectedChallenge || isMarkedToday || !progress) return;
+    if (!selectedChallenge || isMarkedToday || !progress) return;
     const newStreak = progress.current_streak + 1;
     const updated = {
       ...progress,
@@ -77,37 +54,28 @@ const ProgressPage = () => {
       last_marked: today,
     };
     setProgress(updated);
-
-    await supabase.from('user_progress').upsert({
-      user_id: user.id,
-      challenge_id: selectedChallenge,
-      days_clean: updated.days_clean,
-      current_streak: updated.current_streak,
-      best_streak: updated.best_streak,
-      tips_followed: updated.tips_followed,
-      last_marked: updated.last_marked,
-    }, { onConflict: 'user_id,challenge_id' });
-
+    await upsertProgress({
+      challengeId: selectedChallenge,
+      daysClean: updated.days_clean,
+      currentStreak: updated.current_streak,
+      bestStreak: updated.best_streak,
+      tipsFollowed: updated.tips_followed,
+      lastMarked: updated.last_marked,
+    });
     toast.success(lang === 'ar' ? 'أحسنت! تم تسجيل يومك ✓' : 'Great job! Day marked ✓');
   };
 
   const resetProgress = async () => {
-    if (!user || !selectedChallenge) return;
-    const reset: ProgressData = {
+    if (!selectedChallenge) return;
+    await resetProgressDb(selectedChallenge);
+    setProgress({
       challenge_id: selectedChallenge,
       days_clean: 0,
       current_streak: 0,
       best_streak: 0,
       tips_followed: 0,
       last_marked: null,
-    };
-    setProgress(reset);
-
-    await supabase.from('user_progress').upsert({
-      user_id: user.id,
-      challenge_id: selectedChallenge,
-      ...reset,
-    }, { onConflict: 'user_id,challenge_id' });
+    });
   };
 
   const shareProgress = () => {
@@ -211,7 +179,6 @@ const ProgressPage = () => {
         <p className="text-lg font-medium text-foreground">{motivation}</p>
       </motion.div>
 
-      {/* Badges Section */}
       <BadgesDisplay />
 
       <div className="flex flex-col gap-3 max-w-md mx-auto mt-6">
