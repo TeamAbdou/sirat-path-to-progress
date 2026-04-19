@@ -53,9 +53,9 @@ export const encryptString = async (plain: string): Promise<EncryptedBlob> => {
   const key = await getCryptoKey();
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const ct = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
+    { name: 'AES-GCM', iv: iv as BufferSource },
     key,
-    enc.encode(plain),
+    enc.encode(plain) as BufferSource,
   );
   return { iv, ct };
 };
@@ -63,7 +63,7 @@ export const encryptString = async (plain: string): Promise<EncryptedBlob> => {
 export const decryptString = async (blob: EncryptedBlob): Promise<string> => {
   const key = await getCryptoKey();
   const pt = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: blob.iv },
+    { name: 'AES-GCM', iv: blob.iv as BufferSource },
     key,
     blob.ct,
   );
