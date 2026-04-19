@@ -15,6 +15,7 @@
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
     "@lovable.dev/cloud-auth-js": "^0.0.3",
+    "@mlc-ai/web-llm": "^0.2.79",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-aspect-ratio": "^1.1.7",
@@ -48,6 +49,8 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^3.6.0",
+    "dexie": "^4.0.10",
+    "dexie-react-hooks": "^1.1.7",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.35.1",
     "input-otp": "^1.4.2",
