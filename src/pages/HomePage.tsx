@@ -1,18 +1,16 @@
 import { useApp } from '@/contexts/AppContext';
-import { challenges, ChallengeId } from '@/lib/challenges';
+import { challenges } from '@/lib/challenges';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { TranslationKey } from '@/lib/i18n';
-import { Download, Shield, MessageSquareText } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { usePwaInstall } from '@/hooks/usePwaInstall';
-import { useAdmin } from '@/hooks/useAdmin';
 import heroIllustration from '@/assets/hero-illustration.png';
 
 const HomePage = () => {
   const { t, lang } = useApp();
   const navigate = useNavigate();
   const { canInstall, install } = usePwaInstall();
-  const { isAdmin } = useAdmin();
 
   return (
     <div className="container mx-auto px-4 py-6 pb-24">
@@ -39,9 +37,8 @@ const HomePage = () => {
         </div>
       </motion.div>
 
-      {/* Action Buttons */}
-      <div className="flex gap-2 mb-6">
-        {canInstall && (
+      {canInstall && (
+        <div className="flex gap-2 mb-6">
           <motion.button
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -52,37 +49,13 @@ const HomePage = () => {
             <Download className="w-4 h-4" />
             {lang === 'ar' ? 'تحميل التطبيق' : 'Install App'}
           </motion.button>
-        )}
-        {isAdmin && (
-          <motion.button
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => navigate('/admin')}
-            className="flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-card border border-border text-foreground font-semibold text-sm"
-          >
-            <Shield className="w-4 h-4 text-primary" />
-            {lang === 'ar' ? 'لوحة التحكم' : 'Dashboard'}
-          </motion.button>
-        )}
-        <motion.button
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => navigate('/contact')}
-          className="flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-card border border-border text-foreground font-semibold text-sm"
-        >
-          <MessageSquareText className="w-4 h-4 text-primary" />
-          {lang === 'ar' ? 'تواصل معنا' : 'Contact Us'}
-        </motion.button>
-      </div>
+        </div>
+      )}
 
-      {/* Section Title */}
       <p className="text-foreground/70 font-semibold text-sm mb-4 px-1">
         {t.chooseChallenge}
       </p>
 
-      {/* Challenge Grid */}
       <div className="grid grid-cols-2 gap-3 max-w-lg mx-auto">
         {challenges.map((c, i) => {
           const nameKey = c.id as TranslationKey;

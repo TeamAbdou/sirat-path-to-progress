@@ -1,13 +1,11 @@
 import { useApp } from '@/contexts/AppContext';
-import { useAuth } from '@/hooks/useAuth';
-import { Moon, Sun, LogOut, Bell, BellOff } from 'lucide-react';
+import { Moon, Sun, Bell, BellOff } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { motion } from 'framer-motion';
 import appIcon from '@/assets/hero-illustration.png';
 
 const TopBar = () => {
   const { theme, toggleTheme, t } = useApp();
-  const { user, signOut } = useAuth();
   const { isEnabled, toggleNotifications } = useNotifications();
 
   return (
@@ -27,15 +25,13 @@ const TopBar = () => {
         </div>
 
         <div className="flex items-center gap-1">
-          {user && (
-            <button
-              onClick={toggleNotifications}
-              className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-all"
-              title={isEnabled ? t.notificationsOn : t.notificationsOff}
-            >
-              {isEnabled ? <Bell className="w-[18px] h-[18px]" /> : <BellOff className="w-[18px] h-[18px]" />}
-            </button>
-          )}
+          <button
+            onClick={toggleNotifications}
+            className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-all"
+            title={isEnabled ? t.notificationsOn : t.notificationsOff}
+          >
+            {isEnabled ? <Bell className="w-[18px] h-[18px]" /> : <BellOff className="w-[18px] h-[18px]" />}
+          </button>
 
           <button
             onClick={toggleTheme}
@@ -43,16 +39,6 @@ const TopBar = () => {
           >
             {theme === 'dark' ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
           </button>
-
-          {user && (
-            <button
-              onClick={signOut}
-              className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-all"
-              title={t.logout}
-            >
-              <LogOut className="w-[18px] h-[18px]" />
-            </button>
-          )}
         </div>
       </div>
     </header>

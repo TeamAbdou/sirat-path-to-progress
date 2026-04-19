@@ -1,36 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getPreferenceRaw, setPreferenceRaw } from '@/lib/localdb/repository';
+
+const KEY = 'disclaimerAccepted';
 
 const DisclaimerPopup = () => {
   const { lang } = useApp();
-  const { user } = useAuth();
   const [show, setShow] = useState(false);
   const isAr = lang === 'ar';
 
   useEffect(() => {
-    if (!user) return;
-    supabase
-      .from('profiles')
-      .select('disclaimer_accepted')
-      .eq('id', user.id)
-      .single()
-      .then(({ data }) => {
-        if (data && !data.disclaimer_accepted) {
-          setShow(true);
-        }
-      });
-  }, [user]);
+    getPreferenceRaw<boolean>(KEY).then(v => {
+      if (!v) setShow(true);
+    });
+  }, []);
 
   const handleAccept = async () => {
-    if (!user) return;
-    await supabase
-      .from('profiles')
-      .update({ disclaimer_accepted: true })
-      .eq('id', user.id);
+    await setPreferenceRaw(KEY, true);
     setShow(false);
   };
 
@@ -59,8 +47,8 @@ const DisclaimerPopup = () => {
             <div className="bg-[hsl(var(--warning))]/10 border border-[hsl(var(--warning))]/20 rounded-xl p-4 mb-4">
               <p className="text-sm text-foreground text-center leading-relaxed">
                 {isAr
-                  ? 'تطبيق Sirat ليس بديلاً عن التشخيص الطبي أو العلاج النفسي. المحتوى المقدم ذو طابع توعوي وإرشادي فقط. في حالة الأزمات النفسية، تواصل فوراً مع مختص.'
-                  : 'Sirat is NOT a substitute for medical diagnosis or psychological therapy. All content is for educational and guidance purposes only. In case of mental health crises, contact a professional immediately.'}
+                  ? 'تطبيق Sirat ليس بديلاً عن التشخيص الطبي أو العلاج النفسي. المحتوى المقدم ذو طابع توعوي وإرشادي فقط. كل بياناتك تبقى على جهازك. في حالة الأزمات النفسية، تواصل فوراً مع مختص.'
+                  : 'Sirat is NOT a substitute for medical diagnosis or psychological therapy. All content is for educational and guidance purposes only. All your data stays on this device. In case of mental health crises, contact a professional immediately.'}
               </p>
             </div>
 

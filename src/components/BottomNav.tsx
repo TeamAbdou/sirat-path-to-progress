@@ -1,5 +1,5 @@
 import { useApp } from '@/contexts/AppContext';
-import { Home, MessageCircle, TrendingUp, Heart, User } from 'lucide-react';
+import { Home, MessageCircle, TrendingUp, User } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
@@ -11,7 +11,6 @@ const BottomNav = () => {
   const tabs = [
     { path: '/', label: t.home, icon: Home },
     { path: '/chat', label: t.chat, icon: MessageCircle },
-    { path: '/donate', label: t.donate, icon: Heart },
     { path: '/progress', label: t.progress, icon: TrendingUp },
     { path: '/settings', label: t.settings, icon: User },
   ];
