@@ -21,6 +21,7 @@ export default defineConfig(({ mode }) => ({
       includeAssets: ["favicon.ico"],
       workbox: {
         navigateFallbackDenylist: [/^\/~oauth/],
+        maximumFileSizeToCacheInBytes: 15 * 1024 * 1024,
       },
       manifest: {
         name: "صِراط - Sirat",
