@@ -44,12 +44,27 @@ export interface MetaRow {
   value: unknown; // CryptoKey or scalar
 }
 
+/**
+ * Daily entry — source of truth for streaks and charts.
+ * `date` is a local YYYY-MM-DD key (device timezone).
+ * Optional encrypted note via (iv, ct).
+ */
+export interface DailyEntryRow {
+  challengeId: string;
+  date: string; // YYYY-MM-DD (local)
+  status: 'clean' | 'relapse';
+  iv?: Uint8Array;
+  ct?: ArrayBuffer;
+  createdAt: number;
+}
+
 class SiratLocalDB extends Dexie {
   messages!: Table<MessageRow, number>;
   progress!: Table<ProgressRow, string>;
   badges!: Table<BadgeRow, string>;
   preferences!: Table<PreferenceRow, string>;
   meta!: Table<MetaRow, string>;
+  dailyEntries!: Table<DailyEntryRow, [string, string]>;
 
   constructor() {
     super('sirat-local');
@@ -59,6 +74,15 @@ class SiratLocalDB extends Dexie {
       badges: 'badgeId, awardedAt',
       preferences: 'key',
       meta: 'key',
+    });
+    // v2: add dailyEntries with composite primary key [challengeId+date]
+    this.version(2).stores({
+      messages: '++id, challengeId, createdAt',
+      progress: 'challengeId, updatedAt',
+      badges: 'badgeId, awardedAt',
+      preferences: 'key',
+      meta: 'key',
+      dailyEntries: '[challengeId+date], challengeId, date',
     });
   }
 }

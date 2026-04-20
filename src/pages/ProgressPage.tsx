@@ -3,10 +3,18 @@ import { useApp } from '@/contexts/AppContext';
 import { challenges } from '@/lib/challenges';
 import { TranslationKey } from '@/lib/i18n';
 import { motion } from 'framer-motion';
-import { Calendar, Flame, Trophy, CheckCircle, Share2, RotateCcw } from 'lucide-react';
+import { Calendar, Flame, Trophy, CheckCircle, Share2, RotateCcw, X } from 'lucide-react';
 import { toast } from 'sonner';
 import BadgesDisplay from '@/components/BadgesDisplay';
-import { getProgress, upsertProgress, resetProgress as resetProgressDb } from '@/lib/localdb/repository';
+import ProgressCharts from '@/components/ProgressCharts';
+import { BADGES } from '@/lib/badges';
+import {
+  getProgress,
+  resetProgress as resetProgressDb,
+  markDay,
+  todayKey,
+} from '@/lib/localdb/repository';
+import { awardNewBadges } from '@/lib/badges/observer';
 
 interface ProgressData {
   challenge_id: string;
@@ -19,11 +27,13 @@ interface ProgressData {
 
 const ProgressPage = () => {
   const { t, lang } = useApp();
+  const isAr = lang === 'ar';
   const [selectedChallenge, setSelectedChallenge] = useState<string | null>(null);
   const [progress, setProgress] = useState<ProgressData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [chartKey, setChartKey] = useState(0);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayKey();
   const isMarkedToday = progress?.last_marked === today;
 
   useEffect(() => {
@@ -42,27 +52,36 @@ const ProgressPage = () => {
     });
   }, [selectedChallenge]);
 
-  const markToday = async () => {
-    if (!selectedChallenge || isMarkedToday || !progress) return;
-    const newStreak = progress.current_streak + 1;
-    const updated = {
-      ...progress,
-      days_clean: progress.days_clean + 1,
-      current_streak: newStreak,
-      best_streak: Math.max(progress.best_streak, newStreak),
-      tips_followed: progress.tips_followed + 1,
-      last_marked: today,
-    };
-    setProgress(updated);
-    await upsertProgress({
-      challengeId: selectedChallenge,
-      daysClean: updated.days_clean,
-      currentStreak: updated.current_streak,
-      bestStreak: updated.best_streak,
-      tipsFollowed: updated.tips_followed,
-      lastMarked: updated.last_marked,
+  const handleMark = async (status: 'clean' | 'relapse') => {
+    if (!selectedChallenge || isMarkedToday) return;
+    const t0 = performance.now();
+    const updated = await markDay(selectedChallenge, today, status);
+    const newBadges = await awardNewBadges(updated);
+    const elapsed = performance.now() - t0;
+    if (elapsed > 30) console.warn(`[KPI] markDay took ${elapsed.toFixed(1)}ms (>30ms)`);
+
+    setProgress({
+      challenge_id: updated.challengeId,
+      days_clean: updated.daysClean,
+      current_streak: updated.currentStreak,
+      best_streak: updated.bestStreak,
+      tips_followed: updated.tipsFollowed,
+      last_marked: updated.lastMarked,
     });
-    toast.success(lang === 'ar' ? 'أحسنت! تم تسجيل يومك ✓' : 'Great job! Day marked ✓');
+    setChartKey(k => k + 1);
+
+    if (status === 'clean') {
+      toast.success(isAr ? 'أحسنت! يوم نظيف ✓' : 'Great job! Clean day ✓');
+    } else {
+      toast(isAr ? 'سُجِّلت — كل يوم بداية جديدة 💚' : 'Logged — every day is a new start 💚');
+    }
+    for (const id of newBadges) {
+      const badge = BADGES.find(b => b.id === id);
+      if (!badge) continue;
+      toast.success(`${badge.icon} ${isAr ? badge.title.ar : badge.title.en}`, {
+        description: isAr ? badge.criteria.ar : badge.criteria.en,
+      });
+    }
   };
 
   const resetProgress = async () => {
@@ -76,6 +95,7 @@ const ProgressPage = () => {
       tips_followed: 0,
       last_marked: null,
     });
+    setChartKey(k => k + 1);
   };
 
   const shareProgress = () => {
@@ -86,7 +106,7 @@ const ProgressPage = () => {
       navigator.share({ text });
     } else {
       navigator.clipboard.writeText(text);
-      toast.success(lang === 'ar' ? 'تم النسخ!' : 'Copied!');
+      toast.success(isAr ? 'تم النسخ!' : 'Copied!');
     }
   };
 
@@ -145,7 +165,7 @@ const ProgressPage = () => {
           onClick={() => setSelectedChallenge(null)}
           className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground"
         >
-          {lang === 'ar' ? '→' : '←'}
+          {isAr ? '→' : '←'}
         </button>
         <h2 className="text-2xl font-bold text-foreground text-center">
           {t[selectedChallenge as TranslationKey] as string}
@@ -179,21 +199,38 @@ const ProgressPage = () => {
         <p className="text-lg font-medium text-foreground">{motivation}</p>
       </motion.div>
 
+      <ProgressCharts key={chartKey} challengeId={selectedChallenge} />
+
       <BadgesDisplay />
 
       <div className="flex flex-col gap-3 max-w-md mx-auto mt-6">
-        <motion.button
-          whileTap={{ scale: 0.97 }}
-          onClick={markToday}
-          disabled={isMarkedToday}
-          className={`w-full py-4 rounded-2xl font-semibold text-lg transition-all ${
-            isMarkedToday
-              ? 'bg-secondary text-muted-foreground'
-              : 'gradient-primary text-primary-foreground shadow-glow'
-          }`}
-        >
-          {isMarkedToday ? t.todayMarked : t.markToday}
-        </motion.button>
+        <div className="grid grid-cols-2 gap-3">
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={() => handleMark('clean')}
+            disabled={isMarkedToday}
+            className={`py-4 rounded-2xl font-semibold transition-all ${
+              isMarkedToday
+                ? 'bg-secondary text-muted-foreground'
+                : 'gradient-primary text-primary-foreground shadow-glow'
+            }`}
+          >
+            {isMarkedToday ? (isAr ? 'تم اليوم ✓' : 'Done today ✓') : (isAr ? 'يوم نظيف ✓' : 'Clean day ✓')}
+          </motion.button>
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={() => handleMark('relapse')}
+            disabled={isMarkedToday}
+            className={`py-4 rounded-2xl font-semibold transition-all flex items-center justify-center gap-2 ${
+              isMarkedToday
+                ? 'bg-secondary text-muted-foreground'
+                : 'bg-destructive/10 border border-destructive/30 text-destructive hover:bg-destructive/20'
+            }`}
+          >
+            <X className="w-4 h-4" />
+            {isAr ? 'انتكاسة' : 'Relapse'}
+          </motion.button>
+        </div>
 
         <div className="flex gap-3">
           <button
