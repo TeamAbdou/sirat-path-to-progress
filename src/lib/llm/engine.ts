@@ -6,6 +6,7 @@
  * never has to know about the prompt.
  */
 import { CreateMLCEngine, type MLCEngine, type InitProgressReport } from '@mlc-ai/web-llm';
+import { buildProgressContext } from './context';
 
 // Small model that works on most devices with WebGPU. ~700MB on first download,
 // fully cached in the browser afterwards.
@@ -90,13 +91,31 @@ export interface StreamOptions {
   messages: ChatMsg[];
   onDelta: (chunk: string) => void;
   signal?: AbortSignal;
+  includeProgress?: boolean;
 }
 
-export const streamChat = async ({ messages, onDelta, signal }: StreamOptions): Promise<string> => {
+export const streamChat = async ({
+  messages,
+  onDelta,
+  signal,
+  includeProgress = true,
+}: StreamOptions): Promise<string> => {
   const engine = await ensureEngine();
 
+  const systemMessages: { role: 'system'; content: string }[] = [
+    { role: 'system', content: SYSTEM_PROMPT },
+  ];
+  if (includeProgress) {
+    try {
+      const ctx = await buildProgressContext();
+      systemMessages.push({ role: 'system', content: ctx });
+    } catch {
+      // non-fatal: continue without progress context
+    }
+  }
+
   const fullMessages = [
-    { role: 'system' as const, content: SYSTEM_PROMPT },
+    ...systemMessages,
     ...messages.map(m => ({ role: m.role, content: m.content })),
   ];
 
