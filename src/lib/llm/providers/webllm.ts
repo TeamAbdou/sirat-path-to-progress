@@ -2,11 +2,7 @@
  * WebLLM provider — runs the model inside a Web Worker via WebGPU.
  * UI stays at 60fps because token generation never touches the main thread.
  */
-import {
-  CreateWebWorkerMLCEngine,
-  type MLCEngineInterface,
-  type InitProgressReport,
-} from '@mlc-ai/web-llm';
+import type { MLCEngineInterface, InitProgressReport } from '@mlc-ai/web-llm';
 import type { AIProvider, EngineState, StreamOptions } from '../types';
 import { SYSTEM_PROMPT } from '../types';
 import { buildProgressContext } from '../context';
@@ -43,6 +39,8 @@ const ensure = async (): Promise<void> => {
   setState({ status: 'loading', progress: 0, progressText: 'بدء التحميل…' });
 
   worker = new Worker(new URL('../worker.ts', import.meta.url), { type: 'module' });
+
+  const { CreateWebWorkerMLCEngine } = await import('@mlc-ai/web-llm');
 
   enginePromise = CreateWebWorkerMLCEngine(worker, MODEL_ID, {
     initProgressCallback: (r: InitProgressReport) => {
