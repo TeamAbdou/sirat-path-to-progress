@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
 import { challenges } from '@/lib/challenges';
-import { Send, ArrowLeft, ArrowRight, AlertCircle } from 'lucide-react';
+import { Send, Square, ArrowLeft, ArrowRight, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { TranslationKey } from '@/lib/i18n';
@@ -29,6 +29,11 @@ const ChatPage = () => {
   const [sosOpen, setSosOpen] = useState(false);
   const [showQuickReplies, setShowQuickReplies] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const handleStop = () => {
+    abortRef.current?.abort();
+  };
 
   const challenge = challenges.find(c => c.id === challengeId);
   const challengeName = challenge ? (t[challenge.id as TranslationKey] as string) : '';
@@ -93,9 +98,12 @@ const ChatPage = () => {
         .filter((m, i) => !(i === 0 && m.role === 'assistant' && m.content === t.welcomeMessage))
         .map(m => ({ role: m.role, content: m.content }));
 
+      const controller = new AbortController();
+      abortRef.current = controller;
       await streamChat({
         messages: apiMessages,
         onDelta: upsertAssistant,
+        signal: controller.signal,
       });
 
       if (assistantSoFar) {
@@ -107,6 +115,7 @@ const ChatPage = () => {
         setMessages(prev => [...prev, { role: 'assistant', content: t.aiError }]);
       }
     } finally {
+      abortRef.current = null;
       setIsLoading(false);
       setShowQuickReplies(true);
     }
@@ -192,13 +201,25 @@ const ChatPage = () => {
             className="flex-1 bg-transparent outline-none text-foreground placeholder:text-muted-foreground text-sm"
             dir="auto"
           />
-          <button
-            onClick={() => handleSend()}
-            disabled={!input.trim() || isLoading}
-            className="p-2 rounded-xl gradient-primary text-primary-foreground disabled:opacity-40 transition-opacity"
-          >
-            <Send className="w-4 h-4" />
-          </button>
+          {isLoading ? (
+            <button
+              onClick={handleStop}
+              className="p-2 rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors"
+              aria-label={lang === 'ar' ? 'إيقاف' : 'Stop'}
+              title={lang === 'ar' ? 'إيقاف التوليد' : 'Stop generating'}
+            >
+              <Square className="w-4 h-4 fill-current" />
+            </button>
+          ) : (
+            <button
+              onClick={() => handleSend()}
+              disabled={!input.trim()}
+              className="p-2 rounded-xl gradient-primary text-primary-foreground disabled:opacity-40 transition-opacity"
+              aria-label={lang === 'ar' ? 'إرسال' : 'Send'}
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 
