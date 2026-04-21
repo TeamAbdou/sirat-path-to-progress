@@ -56,9 +56,12 @@ const ChatPage = () => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages]);
 
+  const sendingRef = useRef(false);
+
   const handleSend = async (overrideInput?: string) => {
     const msgText = overrideInput || input.trim();
-    if (!msgText || isLoading) return;
+    if (!msgText || isLoading || sendingRef.current) return;
+    sendingRef.current = true;
 
     if (!isWebGPUAvailable()) {
       toast.error(lang === 'ar'
@@ -116,6 +119,7 @@ const ChatPage = () => {
       }
     } finally {
       abortRef.current = null;
+      sendingRef.current = false;
       setIsLoading(false);
       setShowQuickReplies(true);
     }
