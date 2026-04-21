@@ -1,77 +1,66 @@
 
 
-## اليوم الثاني: محرك التتبع المحلي + لوحة التحليلات + جسر السياق للذكاء الاصطناعي
+## اليوم الثالث: عزل محرك الذكاء الاصطناعي في Web Worker + جاهزية سطح المكتب
 
-### الهدف
-تحويل صفحة Progress من عدّاد بسيط إلى محرك تتبع حقيقي مع streaks دقيقة، رسوم بيانية، أوسمة تلقائية، وجسر يُمرّر بيانات التقدم إلى المرشد المحلي.
+### الوضع الحالي
+`@mlc-ai/web-llm` مُدمج بالفعل ويعمل على WebGPU، لكنه يعمل على **الخيط الرئيسي (Main Thread)** — ما يعني أن واجهة الشات تتجمّد أثناء توليد الرموز. اليوم نُصلح ذلك ونُحسّن الهيكلة.
 
 ---
 
-### 1. توسيع طبقة التخزين (`src/lib/localdb/`)
+### 1. عزل النموذج في Web Worker
 
-**`db.ts`** — رفع نسخة Dexie إلى v2 وإضافة جدولين بدون كسر البيانات الحالية:
-- `dailyEntries`: `[challengeId+date], date` — سجل لكل يوم: `{ challengeId, date: 'YYYY-MM-DD', status: 'clean'|'relapse', iv?, ct?(note مشفّرة), createdAt }`. هذا مصدر الحقيقة للرسوم.
-- يبقى `progress` مُلخّصاً مشتقّاً (يُعاد حسابه من `dailyEntries`).
+**`src/lib/llm/worker.ts`** (جديد)
+- Web Worker يستضيف `WebWorkerMLCEngineHandler` من `@mlc-ai/web-llm`.
+- يستقبل أوامر التحميل والمحادثة عبر `postMessage`.
+- يبث تقدم التحميل والرموز للخيط الرئيسي.
 
-**`repository.ts`** — دوال جديدة:
-- `markDay(challengeId, date, status, note?)` — يكتب/يستبدل اليوم، ثم يستدعي `recomputeProgress`.
-- `recomputeProgress(challengeId)` — يقرأ كل `dailyEntries` للتحدي، يحسب `daysClean`, `currentStreak`, `bestStreak` بدقة (يحترم timezone الجهاز عبر `Date` محلي + مفتاح `YYYY-MM-DD` بالتوقيت المحلي، ويعتبر السلسلة منكسرة عند يوم relapse أو فجوة >1 يوم).
-- `listEntries(challengeId, fromDate, toDate)` — للرسوم.
-- `listAllProgress()` — لوحة عامة عبر كل التحديات.
+**`src/lib/llm/engine.ts`** (إعادة هيكلة)
+- استبدال `CreateMLCEngine` بـ `CreateWebWorkerMLCEngine` التي تتواصل مع الـ Worker تلقائياً.
+- نفس واجهة `streamChat`/`subscribeEngine`/`ensureEngine` تبقى كما هي → `ChatPage` لا يتغير.
+- النتيجة: الواجهة تبقى سريعة الاستجابة (60fps) أثناء الاستدلال.
 
-**`crypto.ts`** — لا تغيير (نُعيد استخدام AES-GCM الموجود لتشفير `note` فقط؛ `status` و`date` يبقيان نصاً للاستعلام السريع).
+### 2. اختيار النموذج التجريبي + Fallback
 
-### 2. محرك الأوسمة التلقائي (`src/lib/badges/observer.ts`)
+- النموذج الأساسي: `Qwen2.5-0.5B-Instruct-q4f16_1-MLC` (~350MB، أصغر من Llama-3.2-1B الحالي وأخف على الذاكرة، يحقق KPI <1.5GB RAM).
+- إبقاء `Llama-3.2-1B` كخيار "جودة أعلى" يمكن للمستخدم اختياره لاحقاً (بدون تفعيل اليوم).
+- WebLLM يستخدم Cache API تلقائياً لتخزين أوزان النموذج → لا حاجة لإعداد إضافي.
+- WASM fallback: WebLLM لا يدعم WASM-only للنماذج اللغوية حالياً (يحتاج WebGPU). نُبقي رسالة الـ fallback الواضحة الموجودة في `LocalAIStatus` ونوضّح للمستخدم متطلبات Chrome/Edge مع WebGPU.
 
-دالة نقية `evaluateBadges({ progress, allProgress, entries }) → string[]` تُرجع قائمة badgeIds المستحقة بناءً على `BADGES` الموجود:
-- `badge_day1` — `daysClean >= 1`
-- `badge_week_stable` / `badge_7days_purity` — `currentStreak >= 7`
-- `badge_month_purity` — `currentStreak >= 30`
-- `badge_5steps` — `tipsFollowed >= 5`
-- `badge_return_spiritual` — streak ≥7 على تحدي `notPraying`
-- `badge_boundary_guard` — يبقى يدوياً (يُمنح من زر داخل SOS لاحقاً، خارج نطاق اليوم)
+### 3. واجهة تحميل محسّنة (`LocalAIStatus.tsx`)
 
-`awardNewBadges()` يُقارن مع `listBadges()` ويمنح الجديد فقط، ويُرجع المُكتسب حديثاً → `ProgressPage` يعرض toast احتفالي.
+- إضافة عرض **MB المُحمَّلة / MB الكلية** بجانب نسبة التقدم (يستخرجها من `InitProgressReport.text`).
+- زر "إلغاء/إيقاف مؤقت" أثناء التحميل.
+- بعد التحميل: شارة "النموذج محفوظ محلياً" + زر "حذف النموذج" يستدعي `engine.unload()` ويُفرّغ Cache API لمفتاح النموذج (لاسترجاع المساحة).
 
-### 3. لوحة الإحصائيات (`src/components/ProgressCharts.tsx`)
+### 4. هيكلة جاهزة لسطح المكتب (`src/lib/llm/`)
 
-باستخدام `recharts` (موجود مسبقاً، بدون تبعيات جديدة):
-- **Bar chart** آخر 7 أيام (نظيف=أخضر، انتكاسة=أحمر، فارغ=رمادي).
-- **Line chart** آخر 30 يوماً يُظهر `currentStreak` التراكمي.
-- **Donut صغير** نسبة الأيام النظيفة هذا الشهر.
-- كل البيانات تُقرأ من `listEntries` في `useEffect` واحد، وتُحفظ في state محلي.
+إعادة تنظيم الملفات بحيث يكون منطق الـ AI خلف **interface واحدة**:
+```
+src/lib/llm/
+  ├── types.ts           ← ChatMsg, StreamOptions, EngineState, AIProvider interface
+  ├── engine.ts          ← مُنسّق عام (يختار provider)
+  ├── providers/
+  │   ├── webllm.ts      ← التطبيق الحالي (Web Worker + WebGPU)
+  │   └── native.ts      ← stub فارغ يُلقي "not implemented" — placeholder لـ Tauri/Electron لاحقاً
+  ├── worker.ts          ← Web Worker
+  └── context.ts         ← (موجود) جسر التقدم
+```
+- `engine.ts` يقرأ `import.meta.env.VITE_AI_PROVIDER` (افتراضي `webllm`) لاختيار الـ provider.
+- النتيجة: لتغليف التطبيق لاحقاً كـ Tauri مع llama.cpp، نكتب `native.ts` فقط دون لمس `ChatPage` أو أي UI.
 
-### 4. تحديث `ProgressPage.tsx`
+### 5. التحقق من KPIs
 
-- استبدال `markToday` بزرّين: **"يوم نظيف ✓"** و **"انتكاسة"** — كلاهما يستدعي `markDay`.
-- بعد الكتابة: `recomputeProgress` → `awardNewBadges` → toast لكل وسام جديد.
-- قياس الأداء: `performance.now()` حول العملية الكاملة، تحذير console إذا >30ms (للتحقق من KPI).
-- إضافة `<ProgressCharts challengeId={...} />` فوق `BadgesDisplay`.
-
-### 5. جسر السياق للذكاء الاصطناعي (`src/lib/llm/context.ts`)
-
-- `buildProgressContext(): Promise<string>` — يقرأ `listAllProgress()` + `listBadges()` ويُرجع نصاً موجزاً مثل:
-  ```
-  [Progress snapshot — local only]
-  pornography: 5 days clean, current streak 5, best 12.
-  smoking: 0 days clean.
-  Badges earned: badge_day1, badge_5steps.
-  Today: 2026-04-20.
-  ```
-- `engine.ts` → `streamChat` يقبل خياراً جديداً `includeProgress?: boolean` (افتراضي `true`). عند تفعيله، يُحقن النص بعد `SYSTEM_PROMPT` كرسالة system ثانية.
-- النتيجة: عندما يسأل المستخدم "كيف حالي؟"، النموذج يجاوب بأرقامه الحقيقية بدون أي سيرفر.
-
-### 6. التحقق من KPIs
-
-- أداء: `console.time('markDay')` داخل التدفق — يجب <30ms.
-- خصوصية: تأكيد أن جدول `dailyEntries` في DevTools → IndexedDB يُظهر `iv`/`ct` للملاحظات (الحقول العامة فقط `date`/`status` لتسريع الاستعلام).
-- سلاسل: اختبار حالات (يوم اليوم، أمس فقط، فجوة يومين، انتكاسة في الوسط) عبر تعديل تواريخ يدوياً في الكونسول.
+- **Offline**: قطع الشبكة → إعادة تحميل التطبيق → النموذج يُقلع من الكاش → سؤال يُرد عليه.
+- **عدم تجمّد UI**: التمرير في الشات أثناء التوليد يبقى سلساً (Web Worker).
+- **الذاكرة**: مراقبة `performance.memory.usedJSHeapSize` (Chrome) — يجب <1.5GB مع Qwen-0.5B.
+- **جسر السياق**: التأكد من أن `buildProgressContext` لا يزال يُحقن (موجود في `streamChat`). اختبار: "كم يوم نظيف؟" يجب أن يرد بالعدد الفعلي.
 
 ---
 
 ### ملاحظات
 
-- **بدون تبعيات جديدة**: `recharts`, `dexie`, `lucide-react` كلها موجودة.
-- **توافق رجعي**: الـ `progress` table يبقى موجوداً ومُحدّثاً، فلا انكسار للبيانات الموجودة.
-- **خارج النطاق اليوم**: تعديل/حذف يوم سابق من الواجهة (ممكن لاحقاً)، تصدير CSV، Web Notifications للتذكير اليومي (موجود بالفعل في `useNotifications`).
+- **بدون تبعيات جديدة**: `@mlc-ai/web-llm` موجود ويُصدّر `CreateWebWorkerMLCEngine` و `WebWorkerMLCEngineHandler`.
+- **توافق رجعي**: المستخدمون الذين حمّلوا Llama-3.2-1B سابقاً سيحمّلون Qwen-0.5B عند أول دخول. النموذج القديم يبقى في الكاش (يمكن حذفه يدوياً من زر الإعدادات).
+- **Vite + Worker**: نستخدم `new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })` — Vite يتعامل مع البناء تلقائياً.
+- **خارج النطاق اليوم**: تبديل النماذج من واجهة الإعدادات، WASM fallback لمتصفحات Safari (يحتاج إعادة هيكلة كبيرة)، ضغط النموذج (Q3).
 
