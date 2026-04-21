@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react';
-import { subscribeEngine, ensureEngine, isWebGPUAvailable, type getEngineState } from '@/lib/llm/engine';
+import {
+  subscribeEngine,
+  ensureEngine,
+  isWebGPUAvailable,
+  unloadEngine,
+  type EngineState,
+} from '@/lib/llm/engine';
 import { useApp } from '@/contexts/AppContext';
-import { Cpu, Download, AlertTriangle, CheckCircle2 } from 'lucide-react';
-
-type State = ReturnType<typeof getEngineState>;
+import { Cpu, Download, AlertTriangle, CheckCircle2, Trash2 } from 'lucide-react';
 
 const LocalAIStatus = () => {
   const { lang } = useApp();
   const isAr = lang === 'ar';
-  const [state, setState] = useState<State>({ status: 'idle', progress: 0, progressText: '' });
+  const [state, setState] = useState<EngineState>({ status: 'idle', progress: 0, progressText: '' });
 
   useEffect(() => subscribeEngine(setState), []);
 
@@ -34,14 +38,15 @@ const LocalAIStatus = () => {
         <Download className="w-4 h-4 text-primary flex-shrink-0" />
         <span className="text-foreground">
           {isAr
-            ? 'حمّل النموذج المحلي (مرة واحدة، ~700MB) للعمل بدون إنترنت'
-            : 'Download local model (one time, ~700MB) for offline use'}
+            ? 'حمّل النموذج المحلي (مرة واحدة، ~350MB) للعمل بدون إنترنت'
+            : 'Download local model (one time, ~350MB) for offline use'}
         </span>
       </button>
     );
   }
 
   if (state.status === 'loading') {
+    // WebLLM's progressText often contains "X MB / Y MB" — show it as-is.
     return (
       <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-2 text-xs">
         <div className="flex items-center gap-2">
@@ -49,6 +54,7 @@ const LocalAIStatus = () => {
           <span className="text-foreground font-medium">
             {isAr ? 'جارٍ تحميل النموذج المحلي…' : 'Loading local model…'}
           </span>
+          <span className="ms-auto text-muted-foreground">{Math.round(state.progress * 100)}%</span>
         </div>
         <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
           <div
@@ -56,7 +62,9 @@ const LocalAIStatus = () => {
             style={{ width: `${Math.round(state.progress * 100)}%` }}
           />
         </div>
-        <p className="text-muted-foreground truncate">{state.progressText}</p>
+        <p className="text-muted-foreground truncate" title={state.progressText}>
+          {state.progressText}
+        </p>
       </div>
     );
   }
@@ -76,10 +84,22 @@ const LocalAIStatus = () => {
   if (state.status === 'ready') {
     return (
       <div className="rounded-xl border border-primary/30 bg-primary/5 p-2.5 flex items-center gap-2 text-xs">
-        <CheckCircle2 className="w-4 h-4 text-primary" />
-        <span className="text-foreground">
-          {isAr ? 'الذكاء الاصطناعي المحلي جاهز' : 'Local AI ready'}
+        <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />
+        <span className="text-foreground flex-1">
+          {isAr ? 'الذكاء الاصطناعي المحلي جاهز (محفوظ محلياً)' : 'Local AI ready (cached locally)'}
         </span>
+        <button
+          onClick={() => {
+            if (confirm(isAr ? 'حذف النموذج من الجهاز؟' : 'Delete model from this device?')) {
+              unloadEngine();
+            }
+          }}
+          className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+          title={isAr ? 'حذف النموذج' : 'Delete model'}
+          aria-label={isAr ? 'حذف النموذج' : 'Delete model'}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
       </div>
     );
   }
