@@ -119,6 +119,7 @@ const ChatPage = () => {
       }
     } finally {
       abortRef.current = null;
+      sendingRef.current = false;
       setIsLoading(false);
       setShowQuickReplies(true);
     }
