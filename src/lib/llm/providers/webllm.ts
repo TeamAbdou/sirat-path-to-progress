@@ -40,6 +40,8 @@ const ensure = async (): Promise<void> => {
 
   worker = new Worker(new URL('../worker.ts', import.meta.url), { type: 'module' });
 
+  const { CreateWebWorkerMLCEngine } = await import('@mlc-ai/web-llm');
+
   enginePromise = CreateWebWorkerMLCEngine(worker, MODEL_ID, {
     initProgressCallback: (r: InitProgressReport) => {
       setState({
