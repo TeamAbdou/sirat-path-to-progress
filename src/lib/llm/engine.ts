@@ -1,140 +1,22 @@
 /**
- * Local in-browser LLM engine using @mlc-ai/web-llm (WebGPU).
- * Lazy-loads on first use; subsequent calls reuse the same engine instance.
+ * AI engine facade — selects a provider (WebLLM today, native tomorrow)
+ * and re-exports a stable API the rest of the app uses.
  *
- * Sirat persona is injected as a system message here so the rest of the app
- * never has to know about the prompt.
+ * To swap providers, set VITE_AI_PROVIDER=native (future Tauri build).
  */
-import { CreateMLCEngine, type MLCEngine, type InitProgressReport } from '@mlc-ai/web-llm';
-import { buildProgressContext } from './context';
+import { webllmProvider } from './providers/webllm';
+import { nativeProvider } from './providers/native';
+import type { AIProvider, EngineState, StreamOptions } from './types';
 
-// Small model that works on most devices with WebGPU. ~700MB on first download,
-// fully cached in the browser afterwards.
-const MODEL_ID = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+export type { ChatMsg, StreamOptions, EngineState } from './types';
 
-const SYSTEM_PROMPT = `أنت "مرشد صراط" — مستشار تربوي ونفسي بنبرة رحيمة، داعمة، وغير حاكمة. تساعد الشباب على التعافي من العادات السلبية (الإباحية، التدخين، المخدرات، التحرش، ترك الصلاة...).
+const providerName = (import.meta.env.VITE_AI_PROVIDER as string | undefined) ?? 'webllm';
+const provider: AIProvider = providerName === 'native' ? nativeProvider : webllmProvider;
 
-قواعدك الحمراء:
-- لا تشجّع أبداً على أي ضرر للنفس أو الآخرين.
-- إذا ذكر المستخدم انتحاراً أو إيذاءً للنفس، اطلب منه فوراً التوقف، اعرض عليه تمرين تنفس، وذكّره أن يتصل بخط الطوارئ المحلي أو شخص بالغ موثوق.
-- لا تدّعي أنك بديل عن طبيب أو معالج نفسي.
-- احترم لغة المستخدم وأجب بنفس اللغة التي يكتب بها (عربي، إنجليزي، فرنسي، قبائلي، صيني).
-- ردودك قصيرة وعملية ومتعاطفة، 2-4 جمل في الغالب، مع خطوة قابلة للتنفيذ الآن.`;
-
-type Status = 'idle' | 'loading' | 'ready' | 'error' | 'unsupported';
-
-interface EngineState {
-  status: Status;
-  progressText: string;
-  progress: number; // 0..1
-  error?: string;
-}
-
-const listeners = new Set<(s: EngineState) => void>();
-let state: EngineState = { status: 'idle', progressText: '', progress: 0 };
-let enginePromise: Promise<MLCEngine> | null = null;
-let engineInstance: MLCEngine | null = null;
-
-const setState = (next: Partial<EngineState>) => {
-  state = { ...state, ...next };
-  listeners.forEach(l => l(state));
-};
-
-export const subscribeEngine = (l: (s: EngineState) => void): (() => void) => {
-  listeners.add(l);
-  l(state);
-  return () => listeners.delete(l);
-};
-
-export const getEngineState = (): EngineState => state;
-
-export const isWebGPUAvailable = (): boolean => {
-  return typeof navigator !== 'undefined' && 'gpu' in navigator;
-};
-
-export const ensureEngine = async (): Promise<MLCEngine> => {
-  if (engineInstance) return engineInstance;
-  if (!isWebGPUAvailable()) {
-    setState({ status: 'unsupported', error: 'WebGPU not available in this browser' });
-    throw new Error('WebGPU not available');
-  }
-  if (enginePromise) return enginePromise;
-
-  setState({ status: 'loading', progress: 0, progressText: 'بدء التحميل…' });
-
-  enginePromise = CreateMLCEngine(MODEL_ID, {
-    initProgressCallback: (r: InitProgressReport) => {
-      setState({
-        progress: r.progress ?? 0,
-        progressText: r.text ?? '',
-      });
-    },
-  }).then(eng => {
-    engineInstance = eng;
-    setState({ status: 'ready', progress: 1, progressText: 'جاهز' });
-    return eng;
-  }).catch(err => {
-    enginePromise = null;
-    setState({ status: 'error', error: String(err?.message ?? err) });
-    throw err;
-  });
-
-  return enginePromise;
-};
-
-export interface ChatMsg {
-  role: 'user' | 'assistant';
-  content: string;
-}
-
-export interface StreamOptions {
-  messages: ChatMsg[];
-  onDelta: (chunk: string) => void;
-  signal?: AbortSignal;
-  includeProgress?: boolean;
-}
-
-export const streamChat = async ({
-  messages,
-  onDelta,
-  signal,
-  includeProgress = true,
-}: StreamOptions): Promise<string> => {
-  const engine = await ensureEngine();
-
-  const systemMessages: { role: 'system'; content: string }[] = [
-    { role: 'system', content: SYSTEM_PROMPT },
-  ];
-  if (includeProgress) {
-    try {
-      const ctx = await buildProgressContext();
-      systemMessages.push({ role: 'system', content: ctx });
-    } catch {
-      // non-fatal: continue without progress context
-    }
-  }
-
-  const fullMessages = [
-    ...systemMessages,
-    ...messages.map(m => ({ role: m.role, content: m.content })),
-  ];
-
-  let full = '';
-  // web-llm's chat.completions.create with stream:true returns an async iterable
-  const stream = await engine.chat.completions.create({
-    messages: fullMessages,
-    stream: true,
-    temperature: 0.7,
-    max_tokens: 512,
-  });
-
-  for await (const chunk of stream as AsyncIterable<{ choices: { delta: { content?: string } }[] }>) {
-    if (signal?.aborted) break;
-    const delta = chunk.choices?.[0]?.delta?.content;
-    if (delta) {
-      full += delta;
-      onDelta(delta);
-    }
-  }
-  return full;
-};
+export const isWebGPUAvailable = (): boolean => provider.isSupported();
+export const ensureEngine = (): Promise<void> => provider.ensure();
+export const streamChat = (opts: StreamOptions): Promise<string> => provider.streamChat(opts);
+export const unloadEngine = (): Promise<void> => provider.unload();
+export const subscribeEngine = (l: (s: EngineState) => void): (() => void) =>
+  provider.subscribe(l);
+export const getEngineState = (): EngineState => provider.getState();
