@@ -2,11 +2,7 @@
  * WebLLM provider — runs the model inside a Web Worker via WebGPU.
  * UI stays at 60fps because token generation never touches the main thread.
  */
-import {
-  CreateWebWorkerMLCEngine,
-  type MLCEngineInterface,
-  type InitProgressReport,
-} from '@mlc-ai/web-llm';
+import type { MLCEngineInterface, InitProgressReport } from '@mlc-ai/web-llm';
 import type { AIProvider, EngineState, StreamOptions } from '../types';
 import { SYSTEM_PROMPT } from '../types';
 import { buildProgressContext } from '../context';
