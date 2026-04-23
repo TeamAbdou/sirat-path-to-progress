@@ -21,7 +21,8 @@ import {
   showLocalReminder,
   NOTIF_DEFAULT_TIME,
 } from '@/lib/notifications';
-import { exportSirat, importSirat } from '@/lib/sirat-file';
+import { exportSirat, importSirat, peekSirat, type SiratPreview } from '@/lib/sirat-file';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 const SettingsPage = () => {
   const { t, lang, setLang } = useApp();
@@ -36,6 +37,11 @@ const SettingsPage = () => {
   // Export / Import
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [importPreview, setImportPreview] = useState<{
+    file: File;
+    password: string;
+    preview: SiratPreview;
+  } | null>(null);
 
   useEffect(() => {
     getPreferenceEncrypted('displayName').then(v => {
@@ -138,10 +144,22 @@ const SettingsPage = () => {
       lang === 'ar' ? 'كلمة السر التي اخترتها عند التصدير:' : 'The password you chose when exporting:'
     );
     if (!password) return;
-    const confirmMsg = lang === 'ar'
-      ? 'سيُستبدل المحتوى المحلي بالرحلة المستوردة. متابعة؟'
-      : 'Local content will be replaced by the imported journey. Continue?';
-    if (!window.confirm(confirmMsg)) return;
+    try {
+      setBusy(true);
+      const preview = await peekSirat(file, password);
+      setImportPreview({ file, password, preview });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Import failed.';
+      toast.error(msg);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!importPreview) return;
+    const { file, password } = importPreview;
+    setImportPreview(null);
     try {
       setBusy(true);
       const stats = await importSirat(file, password);
@@ -150,7 +168,6 @@ const SettingsPage = () => {
           ? `تم الاستيراد: ${stats.messages} رسالة، ${stats.entries} يوم، ${stats.badges} شارة.`
           : `Imported: ${stats.messages} messages, ${stats.entries} days, ${stats.badges} badges.`
       );
-      // Soft reload so all pages re-read the new state cleanly.
       setTimeout(() => window.location.reload(), 800);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Import failed.';
@@ -373,6 +390,65 @@ const SettingsPage = () => {
           </div>
         </div>
       </motion.div>
+
+      {/* Import preview confirmation */}
+      <Dialog open={!!importPreview} onOpenChange={(open) => { if (!open) setImportPreview(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {lang === 'ar' ? 'تأكيد الاستيراد' : 'Confirm import'}
+            </DialogTitle>
+            <DialogDescription>
+              {lang === 'ar'
+                ? 'سيُستبدل كل محتواك المحلي بالبيانات أدناه. هذه العملية لا يمكن التراجع عنها.'
+                : 'Your local content will be REPLACED by the data below. This cannot be undone.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {importPreview && (
+            <div className="space-y-2 py-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-secondary rounded-xl p-3">
+                  <div className="text-2xl font-bold text-foreground">{importPreview.preview.messages}</div>
+                  <div className="text-xs text-muted-foreground">{lang === 'ar' ? 'رسالة' : 'Messages'}</div>
+                </div>
+                <div className="bg-secondary rounded-xl p-3">
+                  <div className="text-2xl font-bold text-foreground">{importPreview.preview.entries}</div>
+                  <div className="text-xs text-muted-foreground">{lang === 'ar' ? 'يوم مسجّل' : 'Days logged'}</div>
+                </div>
+                <div className="bg-secondary rounded-xl p-3">
+                  <div className="text-2xl font-bold text-foreground">{importPreview.preview.badges}</div>
+                  <div className="text-xs text-muted-foreground">{lang === 'ar' ? 'شارة' : 'Badges'}</div>
+                </div>
+                <div className="bg-secondary rounded-xl p-3">
+                  <div className="text-2xl font-bold text-foreground">{importPreview.preview.challenges}</div>
+                  <div className="text-xs text-muted-foreground">{lang === 'ar' ? 'تحدّي' : 'Challenges'}</div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground pt-1">
+                {lang === 'ar' ? 'تاريخ التصدير:' : 'Exported:'}{' '}
+                {new Date(importPreview.preview.exportedAt).toLocaleString()}
+              </p>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <button
+              onClick={() => setImportPreview(null)}
+              className="px-4 py-2.5 rounded-xl bg-secondary text-foreground text-sm font-medium hover:bg-secondary/70"
+            >
+              {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+            </button>
+            <button
+              onClick={handleConfirmImport}
+              disabled={busy}
+              className="px-4 py-2.5 rounded-xl bg-destructive text-destructive-foreground text-sm font-medium hover:bg-destructive/90 disabled:opacity-50"
+            >
+              {lang === 'ar' ? 'استبدال البيانات' : 'Replace data'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
