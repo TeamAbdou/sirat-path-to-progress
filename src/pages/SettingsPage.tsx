@@ -21,7 +21,8 @@ import {
   showLocalReminder,
   NOTIF_DEFAULT_TIME,
 } from '@/lib/notifications';
-import { exportSirat, importSirat } from '@/lib/sirat-file';
+import { exportSirat, importSirat, peekSirat, type SiratPreview } from '@/lib/sirat-file';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 const SettingsPage = () => {
   const { t, lang, setLang } = useApp();
