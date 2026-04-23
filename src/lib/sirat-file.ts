@@ -136,8 +136,15 @@ export const exportSirat = async (password: string): Promise<Blob> => {
   return new Blob([JSON.stringify(envelope, null, 2)], { type: 'application/octet-stream' });
 };
 
-/** Decrypt + restore a .sirat file. Existing rows are overwritten. */
-export const importSirat = async (file: File, password: string): Promise<{ messages: number; entries: number; badges: number }> => {
+export interface SiratPreview {
+  messages: number;
+  entries: number;
+  badges: number;
+  challenges: number;
+  exportedAt: number;
+}
+
+const decryptSnapshot = async (file: File, password: string): Promise<Snapshot> => {
   const text = await file.text();
   let envelope: { magic: string; salt: string; iv: string; ct: string };
   try { envelope = JSON.parse(text); }
@@ -155,7 +162,27 @@ export const importSirat = async (file: File, password: string): Promise<{ messa
   } catch {
     throw new Error('Wrong password or corrupted file.');
   }
-  const snapshot = JSON.parse(dec.decode(plain)) as Snapshot;
+  return JSON.parse(dec.decode(plain)) as Snapshot;
+};
+
+/** Decrypt a .sirat file and return summary counts WITHOUT touching local DB. */
+export const peekSirat = async (file: File, password: string): Promise<SiratPreview> => {
+  const snap = await decryptSnapshot(file, password);
+  const challenges = new Set<string>();
+  snap.progress.forEach(p => challenges.add(p.challengeId));
+  snap.messages.forEach(m => challenges.add(m.challengeId));
+  return {
+    messages: snap.messages.length,
+    entries: snap.dailyEntries.length,
+    badges: snap.badges.length,
+    challenges: challenges.size,
+    exportedAt: snap.exportedAt,
+  };
+};
+
+/** Decrypt + restore a .sirat file. Existing rows are overwritten. */
+export const importSirat = async (file: File, password: string): Promise<{ messages: number; entries: number; badges: number }> => {
+  const snapshot = await decryptSnapshot(file, password);
 
   // Re-encrypt with this device's master key and write everything.
   await db.messages.clear();
