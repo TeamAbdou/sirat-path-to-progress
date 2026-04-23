@@ -37,6 +37,11 @@ const SettingsPage = () => {
   // Export / Import
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [importPreview, setImportPreview] = useState<{
+    file: File;
+    password: string;
+    preview: SiratPreview;
+  } | null>(null);
 
   useEffect(() => {
     getPreferenceEncrypted('displayName').then(v => {
