@@ -1,5 +1,5 @@
-/* Sirat offline service worker — cache-first for static assets */
-const CACHE = 'sirat-static-v1';
+/* Sirat offline service worker — cache-first + privacy-safe local notifications */
+const CACHE = 'sirat-static-v2';
 const OFFLINE_URLS = ['/', '/index.html', '/manifest.webmanifest'];
 
 self.addEventListener('install', event => {
@@ -37,6 +37,38 @@ self.addEventListener('fetch', event => {
         })
         .catch(() => cached || new Response('Offline', { status: 503 }));
       return cached || network;
+    })
+  );
+});
+
+/* ---------------- Local notifications (privacy-safe) ----------------
+ * The page posts { type: 'SHOW_NOTIFICATION', title, body, tag } to the SW
+ * which calls showNotification — this works whether the tab is hidden or
+ * the PWA is installed. No remote push server is involved.
+ */
+self.addEventListener('message', event => {
+  const data = event.data || {};
+  if (data.type === 'SHOW_NOTIFICATION') {
+    self.registration.showNotification(data.title || 'Sirat', {
+      body: data.body || '',
+      icon: '/favicon.ico',
+      badge: '/favicon.ico',
+      tag: data.tag || 'sirat-reminder',
+      silent: false,
+      data: { url: data.url || '/' },
+    });
+  }
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const c of list) {
+        if ('focus' in c) return c.focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(target);
     })
   );
 });
