@@ -2,24 +2,61 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { useEffect } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { AppProvider } from "@/contexts/AppContext";
 import { LocalProfileProvider, useLocalProfile } from "@/contexts/LocalProfileContext";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import DisclaimerPopup from "@/components/DisclaimerPopup";
+import PrivacyBadge from "@/components/PrivacyBadge";
 import HomePage from "@/pages/HomePage";
 import ChatPage from "@/pages/ChatPage";
 import ProgressPage from "@/pages/ProgressPage";
 import SettingsPage from "@/pages/SettingsPage";
 import PrivacyPage from "@/pages/PrivacyPage";
 import DisclaimerPage from "@/pages/DisclaimerPage";
+import SOSPage from "@/pages/SOSPage";
 import NotFound from "./pages/NotFound";
+import { startReminderScheduler } from "@/lib/notifications";
 
 const queryClient = new QueryClient();
 
+const RoutedPages = () => {
+  const location = useLocation();
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={location.pathname}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -8 }}
+        transition={{ duration: 0.18, ease: "easeOut" }}
+      >
+        <Routes location={location}>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/chat" element={<ChatPage />} />
+          <Route path="/chat/:challengeId" element={<ChatPage />} />
+          <Route path="/progress" element={<ProgressPage />} />
+          <Route path="/sos" element={<SOSPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/disclaimer" element={<DisclaimerPage />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
 const AppShell = () => {
   const { ready } = useLocalProfile();
+
+  useEffect(() => {
+    const id = startReminderScheduler();
+    return () => clearInterval(id);
+  }, []);
 
   if (!ready) {
     return (
@@ -32,18 +69,10 @@ const AppShell = () => {
   return (
     <>
       <TopBar />
+      <PrivacyBadge />
       <DisclaimerPopup />
       <main className="min-h-screen">
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/chat" element={<ChatPage />} />
-          <Route path="/chat/:challengeId" element={<ChatPage />} />
-          <Route path="/progress" element={<ProgressPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/privacy" element={<PrivacyPage />} />
-          <Route path="/disclaimer" element={<DisclaimerPage />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <RoutedPages />
       </main>
       <BottomNav />
     </>
