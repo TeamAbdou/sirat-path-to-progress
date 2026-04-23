@@ -144,10 +144,22 @@ const SettingsPage = () => {
       lang === 'ar' ? 'كلمة السر التي اخترتها عند التصدير:' : 'The password you chose when exporting:'
     );
     if (!password) return;
-    const confirmMsg = lang === 'ar'
-      ? 'سيُستبدل المحتوى المحلي بالرحلة المستوردة. متابعة؟'
-      : 'Local content will be replaced by the imported journey. Continue?';
-    if (!window.confirm(confirmMsg)) return;
+    try {
+      setBusy(true);
+      const preview = await peekSirat(file, password);
+      setImportPreview({ file, password, preview });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Import failed.';
+      toast.error(msg);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!importPreview) return;
+    const { file, password } = importPreview;
+    setImportPreview(null);
     try {
       setBusy(true);
       const stats = await importSirat(file, password);
@@ -156,7 +168,6 @@ const SettingsPage = () => {
           ? `تم الاستيراد: ${stats.messages} رسالة، ${stats.entries} يوم، ${stats.badges} شارة.`
           : `Imported: ${stats.messages} messages, ${stats.entries} days, ${stats.badges} badges.`
       );
-      // Soft reload so all pages re-read the new state cleanly.
       setTimeout(() => window.location.reload(), 800);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Import failed.';
