@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { motion } from 'framer-motion';
-import { User, Globe, Check, Shield, AlertTriangle, Trash2, Cpu } from 'lucide-react';
+import { User, Globe, Check, Shield, AlertTriangle, Trash2, Cpu, Bell, Download, Upload, Heart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Lang, langNames } from '@/lib/i18n';
@@ -12,12 +12,30 @@ import {
 } from '@/lib/localdb/repository';
 import { db } from '@/lib/localdb/db';
 import LocalAIStatus from '@/components/LocalAIStatus';
+import {
+  getReminderEnabled,
+  getReminderTime,
+  setReminderEnabled,
+  setReminderTime,
+  requestNotificationPermission,
+  showLocalReminder,
+  NOTIF_DEFAULT_TIME,
+} from '@/lib/notifications';
+import { exportSirat, importSirat } from '@/lib/sirat-file';
 
 const SettingsPage = () => {
   const { t, lang, setLang } = useApp();
   const navigate = useNavigate();
   const [displayName, setDisplayName] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Notifications
+  const [notifOn, setNotifOn] = useState(getReminderEnabled());
+  const [notifTime, setNotifTimeState] = useState(getReminderTime() || NOTIF_DEFAULT_TIME);
+
+  // Export / Import
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     getPreferenceEncrypted('displayName').then(v => {
@@ -32,9 +50,7 @@ const SettingsPage = () => {
     toast.success(t.saved);
   };
 
-  const handleLangChange = (newLang: Lang) => {
-    setLang(newLang);
-  };
+  const handleLangChange = (newLang: Lang) => setLang(newLang);
 
   const handleWipe = async () => {
     const confirmMsg = lang === 'ar'
@@ -46,8 +62,102 @@ const SettingsPage = () => {
       db.progress.clear(),
       db.badges.clear(),
       db.preferences.clear(),
+      db.dailyEntries.clear(),
     ]);
     toast.success(lang === 'ar' ? 'تم الحذف' : 'Wiped');
+  };
+
+  const handleToggleNotif = async () => {
+    if (notifOn) {
+      setReminderEnabled(false);
+      setNotifOn(false);
+      toast.success(lang === 'ar' ? 'أُوقفت التنبيهات' : 'Notifications off');
+      return;
+    }
+    const perm = await requestNotificationPermission();
+    if (perm !== 'granted') {
+      toast.error(lang === 'ar' ? 'يجب السماح بالتنبيهات من إعدادات المتصفح.' : 'Browser notifications were denied.');
+      return;
+    }
+    setReminderEnabled(true);
+    setNotifOn(true);
+    toast.success(lang === 'ar' ? 'تم تفعيل التنبيهات' : 'Notifications enabled');
+  };
+
+  const handleTimeChange = (v: string) => {
+    setNotifTimeState(v);
+    setReminderTime(v);
+  };
+
+  const handleTestNotif = async () => {
+    const perm = await requestNotificationPermission();
+    if (perm !== 'granted') {
+      toast.error(lang === 'ar' ? 'يجب السماح بالتنبيهات أولاً.' : 'Allow notifications first.');
+      return;
+    }
+    void showLocalReminder('sirat-test');
+  };
+
+  const handleExport = async () => {
+    const password = window.prompt(
+      lang === 'ar'
+        ? 'اختر كلمة سر لحماية ملفك (6 أحرف على الأقل):'
+        : 'Choose a password to protect your file (min 6 chars):'
+    );
+    if (!password) return;
+    if (password.length < 6) {
+      toast.error(lang === 'ar' ? 'كلمة السر قصيرة جداً.' : 'Password too short.');
+      return;
+    }
+    try {
+      setBusy(true);
+      const blob = await exportSirat(password);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const stamp = new Date().toISOString().slice(0, 10);
+      a.download = `sirat-journey-${stamp}.sirat`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(lang === 'ar' ? 'تم تصدير رحلتك ✅' : 'Journey exported ✅');
+    } catch (e) {
+      console.error(e);
+      toast.error(lang === 'ar' ? 'فشل التصدير.' : 'Export failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleImportClick = () => fileInputRef.current?.click();
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const password = window.prompt(
+      lang === 'ar' ? 'كلمة السر التي اخترتها عند التصدير:' : 'The password you chose when exporting:'
+    );
+    if (!password) return;
+    const confirmMsg = lang === 'ar'
+      ? 'سيُستبدل المحتوى المحلي بالرحلة المستوردة. متابعة؟'
+      : 'Local content will be replaced by the imported journey. Continue?';
+    if (!window.confirm(confirmMsg)) return;
+    try {
+      setBusy(true);
+      const stats = await importSirat(file, password);
+      toast.success(
+        lang === 'ar'
+          ? `تم الاستيراد: ${stats.messages} رسالة، ${stats.entries} يوم، ${stats.badges} شارة.`
+          : `Imported: ${stats.messages} messages, ${stats.entries} days, ${stats.badges} badges.`
+      );
+      // Soft reload so all pages re-read the new state cleanly.
+      setTimeout(() => window.location.reload(), 800);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Import failed.';
+      toast.error(msg);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const langs: Lang[] = ['ar', 'en', 'fr', 'kab', 'zh'];
@@ -109,6 +219,55 @@ const SettingsPage = () => {
           </div>
         </div>
 
+        {/* Notifications */}
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+            <Bell className="w-4 h-4" />
+            {lang === 'ar' ? 'التذكيرات اليومية' : 'Daily Reminders'}
+          </h3>
+          <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+            {lang === 'ar'
+              ? 'تظهر التنبيهات بصيغة سرية ("لديك رسالة جديدة") لحماية خصوصيتك.'
+              : 'Notifications appear privately ("New message") to protect your privacy.'}
+          </p>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-foreground">
+              {notifOn
+                ? (lang === 'ar' ? 'مفعّلة' : 'Enabled')
+                : (lang === 'ar' ? 'متوقفة' : 'Disabled')}
+            </span>
+            <button
+              onClick={handleToggleNotif}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                notifOn
+                  ? 'bg-destructive/10 border border-destructive/20 text-destructive hover:bg-destructive/20'
+                  : 'gradient-primary text-primary-foreground'
+              }`}
+            >
+              {notifOn
+                ? (lang === 'ar' ? 'إيقاف' : 'Turn off')
+                : (lang === 'ar' ? 'تفعيل' : 'Enable')}
+            </button>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <label className="text-sm text-muted-foreground">
+              {lang === 'ar' ? 'الوقت' : 'Time'}
+            </label>
+            <input
+              type="time"
+              value={notifTime}
+              onChange={e => handleTimeChange(e.target.value)}
+              className="px-3 py-2 bg-secondary border border-border rounded-xl text-foreground text-sm outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            <button
+              onClick={handleTestNotif}
+              className="text-xs px-3 py-2 rounded-xl bg-secondary text-foreground hover:bg-secondary/70"
+            >
+              {lang === 'ar' ? 'اختبار' : 'Test'}
+            </button>
+          </div>
+        </div>
+
         {/* Local AI status */}
         <div className="bg-card border border-border rounded-2xl p-5">
           <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
@@ -116,6 +275,58 @@ const SettingsPage = () => {
             {lang === 'ar' ? 'الذكاء الاصطناعي المحلي' : 'Local AI'}
           </h3>
           <LocalAIStatus />
+        </div>
+
+        {/* SOS shortcut */}
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+            <Heart className="w-4 h-4 text-destructive" />
+            {lang === 'ar' ? 'ركن الطوارئ' : 'Emergency Hub'}
+          </h3>
+          <button
+            onClick={() => navigate('/sos')}
+            className="w-full py-2.5 rounded-xl gradient-primary text-primary-foreground text-sm font-medium"
+          >
+            {lang === 'ar' ? 'افتح أدوات الطوارئ' : 'Open emergency tools'}
+          </button>
+        </div>
+
+        {/* Data sovereignty */}
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+            <Shield className="w-4 h-4" />
+            {lang === 'ar' ? 'سيادة البيانات' : 'Data Sovereignty'}
+          </h3>
+          <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+            {lang === 'ar'
+              ? 'صدّر رحلتك في ملف مشفّر (.sirat) واستوردها على أي جهاز آخر.'
+              : 'Export your journey as an encrypted .sirat file and import it on another device.'}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={handleExport}
+              disabled={busy}
+              className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm font-medium hover:bg-primary/20 transition-colors disabled:opacity-50"
+            >
+              <Download className="w-4 h-4" />
+              {lang === 'ar' ? 'تصدير' : 'Export'}
+            </button>
+            <button
+              onClick={handleImportClick}
+              disabled={busy}
+              className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-secondary text-foreground text-sm font-medium hover:bg-secondary/70 transition-colors disabled:opacity-50"
+            >
+              <Upload className="w-4 h-4" />
+              {lang === 'ar' ? 'استيراد' : 'Import'}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".sirat,application/octet-stream,application/json"
+              onChange={handleImportFile}
+              className="hidden"
+            />
+          </div>
         </div>
 
         {/* Privacy / wipe */}

@@ -1,6 +1,7 @@
 import { useApp } from '@/contexts/AppContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, MessageCircle, Wind, X, Heart } from 'lucide-react';
+import { Phone, MessageCircle, Wind, X, Heart, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface SOSModalProps {
   open: boolean;
@@ -9,6 +10,7 @@ interface SOSModalProps {
 
 const SOSModal = ({ open, onClose }: SOSModalProps) => {
   const { lang } = useApp();
+  const navigate = useNavigate();
   const isAr = lang === 'ar';
 
   return (
@@ -103,6 +105,14 @@ const SOSModal = ({ open, onClose }: SOSModalProps) => {
                 </div>
               </button>
             </div>
+
+            <button
+              onClick={() => { onClose(); navigate('/sos'); }}
+              className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-secondary text-foreground text-sm font-medium hover:bg-secondary/70 transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+              {isAr ? 'افتح ركن الطوارئ الكامل' : 'Open Full Emergency Hub'}
+            </button>
 
             <p className="text-xs text-muted-foreground text-center mt-4 leading-relaxed">
               {isAr

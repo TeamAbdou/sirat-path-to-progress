@@ -49,7 +49,15 @@ const ChatPage = () => {
         setMessages([{ role: 'assistant', content: t.welcomeMessage }]);
       }
       setHistoryLoaded(true);
+
+      // SOS hand-off: if the SOS page set an emergency prompt, auto-send it.
+      const sosPrompt = sessionStorage.getItem('sirat-sos-prompt');
+      if (sosPrompt) {
+        sessionStorage.removeItem('sirat-sos-prompt');
+        setTimeout(() => handleSend(sosPrompt), 50);
+      }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cid, historyLoaded, t.welcomeMessage]);
 
   useEffect(() => {
