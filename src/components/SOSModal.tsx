@@ -1,6 +1,7 @@
 import { useApp } from '@/contexts/AppContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, MessageCircle, Wind, X, Heart } from 'lucide-react';
+import { Phone, MessageCircle, Wind, X, Heart, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface SOSModalProps {
   open: boolean;
@@ -9,6 +10,7 @@ interface SOSModalProps {
 
 const SOSModal = ({ open, onClose }: SOSModalProps) => {
   const { lang } = useApp();
+  const navigate = useNavigate();
   const isAr = lang === 'ar';
 
   return (
