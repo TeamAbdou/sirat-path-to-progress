@@ -390,6 +390,65 @@ const SettingsPage = () => {
           </div>
         </div>
       </motion.div>
+
+      {/* Import preview confirmation */}
+      <Dialog open={!!importPreview} onOpenChange={(open) => { if (!open) setImportPreview(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {lang === 'ar' ? 'تأكيد الاستيراد' : 'Confirm import'}
+            </DialogTitle>
+            <DialogDescription>
+              {lang === 'ar'
+                ? 'سيُستبدل كل محتواك المحلي بالبيانات أدناه. هذه العملية لا يمكن التراجع عنها.'
+                : 'Your local content will be REPLACED by the data below. This cannot be undone.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {importPreview && (
+            <div className="space-y-2 py-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-secondary rounded-xl p-3">
+                  <div className="text-2xl font-bold text-foreground">{importPreview.preview.messages}</div>
+                  <div className="text-xs text-muted-foreground">{lang === 'ar' ? 'رسالة' : 'Messages'}</div>
+                </div>
+                <div className="bg-secondary rounded-xl p-3">
+                  <div className="text-2xl font-bold text-foreground">{importPreview.preview.entries}</div>
+                  <div className="text-xs text-muted-foreground">{lang === 'ar' ? 'يوم مسجّل' : 'Days logged'}</div>
+                </div>
+                <div className="bg-secondary rounded-xl p-3">
+                  <div className="text-2xl font-bold text-foreground">{importPreview.preview.badges}</div>
+                  <div className="text-xs text-muted-foreground">{lang === 'ar' ? 'شارة' : 'Badges'}</div>
+                </div>
+                <div className="bg-secondary rounded-xl p-3">
+                  <div className="text-2xl font-bold text-foreground">{importPreview.preview.challenges}</div>
+                  <div className="text-xs text-muted-foreground">{lang === 'ar' ? 'تحدّي' : 'Challenges'}</div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground pt-1">
+                {lang === 'ar' ? 'تاريخ التصدير:' : 'Exported:'}{' '}
+                {new Date(importPreview.preview.exportedAt).toLocaleString()}
+              </p>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <button
+              onClick={() => setImportPreview(null)}
+              className="px-4 py-2.5 rounded-xl bg-secondary text-foreground text-sm font-medium hover:bg-secondary/70"
+            >
+              {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+            </button>
+            <button
+              onClick={handleConfirmImport}
+              disabled={busy}
+              className="px-4 py-2.5 rounded-xl bg-destructive text-destructive-foreground text-sm font-medium hover:bg-destructive/90 disabled:opacity-50"
+            >
+              {lang === 'ar' ? 'استبدال البيانات' : 'Replace data'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
