@@ -106,6 +106,14 @@ const SOSModal = ({ open, onClose }: SOSModalProps) => {
               </button>
             </div>
 
+            <button
+              onClick={() => { onClose(); navigate('/sos'); }}
+              className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-secondary text-foreground text-sm font-medium hover:bg-secondary/70 transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+              {isAr ? 'افتح ركن الطوارئ الكامل' : 'Open Full Emergency Hub'}
+            </button>
+
             <p className="text-xs text-muted-foreground text-center mt-4 leading-relaxed">
               {isAr
                 ? 'أشعر بقلقك الشديد وأهم شيء الآن هو سلامتك. ❤️'
