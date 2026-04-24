@@ -40,15 +40,83 @@ export interface Hadith {
  * never invent one as a fallback.
  */
 export const HADITH_BANK: readonly Hadith[] = [
-  // TODO(user): Paste authenticated entries here.
-  // Example shape (do NOT use this filler in production):
-  // {
-  //   id: 'bukhari-1',
-  //   arabic: 'إنما الأعمال بالنيات…',
-  //   source: 'Bukhari',
-  //   number: 1,
-  //   moods: ['intention'],
-  // },
+  {
+    id: 'bukhari-1',
+    arabic: 'إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ، وَإِنَّمَا لِكُلِّ امْرِئٍ مَا نَوَى.',
+    source: 'Bukhari',
+    number: 1,
+    moods: ['intention'],
+  },
+  {
+    id: 'muslim-1907',
+    arabic: 'إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ، وَإِنَّمَا لِكُلِّ امْرِئٍ مَا نَوَى.',
+    source: 'Muslim',
+    number: 1907,
+    moods: ['intention'],
+  },
+  {
+    id: 'bukhari-6114',
+    arabic: 'لَيْسَ الشَّدِيدُ بِالصُّرَعَةِ، إِنَّمَا الشَّدِيدُ الَّذِي يَمْلِكُ نَفْسَهُ عِنْدَ الْغَضَبِ.',
+    source: 'Bukhari',
+    number: 6114,
+    moods: ['discipline'],
+  },
+  {
+    id: 'muslim-2609',
+    arabic: 'لَيْسَ الشَّدِيدُ بِالصُّرَعَةِ، إِنَّمَا الشَّدِيدُ الَّذِي يَمْلِكُ نَفْسَهُ عِنْدَ الْغَضَبِ.',
+    source: 'Muslim',
+    number: 2609,
+    moods: ['discipline'],
+  },
+  {
+    id: 'bukhari-1469',
+    arabic: 'وَمَنْ يَتَصَبَّرْ يُصَبِّرْهُ اللَّهُ، وَمَا أُعْطِيَ أَحَدٌ عَطَاءً خَيْرًا وَأَوْسَعَ مِنَ الصَّبْرِ.',
+    source: 'Bukhari',
+    number: 1469,
+    moods: ['patience'],
+  },
+  {
+    id: 'muslim-1053',
+    arabic: 'وَمَنْ يَتَصَبَّرْ يُصَبِّرْهُ اللَّهُ، وَمَا أُعْطِيَ أَحَدٌ عَطَاءً خَيْرًا وَأَوْسَعَ مِنَ الصَّبْرِ.',
+    source: 'Muslim',
+    number: 1053,
+    moods: ['patience'],
+  },
+  {
+    id: 'bukhari-6464',
+    arabic: 'أَحَبُّ الأَعْمَالِ إِلَى اللَّهِ أَدْوَمُهَا وَإِنْ قَلَّ.',
+    source: 'Bukhari',
+    number: 6464,
+    moods: ['discipline', 'hope'],
+  },
+  {
+    id: 'muslim-782',
+    arabic: 'أَحَبُّ الأَعْمَالِ إِلَى اللَّهِ أَدْوَمُهَا وَإِنْ قَلَّ.',
+    source: 'Muslim',
+    number: 782,
+    moods: ['discipline', 'hope'],
+  },
+  {
+    id: 'bukhari-69',
+    arabic: 'يَسِّرُوا وَلا تُعَسِّرُوا، وَبَشِّرُوا وَلا تُنَفِّرُوا.',
+    source: 'Bukhari',
+    number: 69,
+    moods: ['hope', 'repentance'],
+  },
+  {
+    id: 'muslim-1734',
+    arabic: 'يَسِّرُوا وَلا تُعَسِّرُوا، وَبَشِّرُوا وَلا تُنَفِّرُوا.',
+    source: 'Muslim',
+    number: 1734,
+    moods: ['hope', 'repentance'],
+  },
+  {
+    id: 'muslim-2564',
+    arabic: 'إِنَّ اللَّهَ لا يَنْظُرُ إِلَى صُوَرِكُمْ وَأَمْوَالِكُمْ، وَلَكِنْ يَنْظُرُ إِلَى قُلُوبِكُمْ وَأَعْمَالِكُمْ.',
+    source: 'Muslim',
+    number: 2564,
+    moods: ['intention', 'repentance'],
+  },
 ];
 
 const SOURCE_LABEL_AR: Record<HadithSource, string> = {
