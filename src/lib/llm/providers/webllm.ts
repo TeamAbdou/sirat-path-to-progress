@@ -114,8 +114,8 @@ const streamChat = async ({
     // Prevent KV-cache from growing unbounded across long sessions.
     // Each turn we re-send the full history, so resetting is safe.
     try {
-      // @ts-expect-error - resetChat exists on engine but not always typed
-      if (typeof engine.resetChat === 'function') await engine.resetChat();
+      const eng = engine as MLCEngineInterface & { resetChat?: () => Promise<void> };
+      if (typeof eng.resetChat === 'function') await eng.resetChat();
     } catch { /* ignore */ }
   }
   return full;
