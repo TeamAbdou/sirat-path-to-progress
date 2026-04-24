@@ -63,6 +63,11 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      fontFamily: {
+        display: ['Tajawal', 'IBM Plex Sans Arabic', 'Inter', 'sans-serif'],
+        body: ['Inter', 'IBM Plex Sans Arabic', 'sans-serif'],
+        arabic: ['IBM Plex Sans Arabic', 'Tajawal', 'sans-serif'],
+      },
       keyframes: {
         "accordion-down": {
           from: {

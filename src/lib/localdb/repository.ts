@@ -48,13 +48,25 @@ export const listMessages = async (
 ): Promise<DecryptedMessage[]> => {
   const rows = await db.messages.where('challengeId').equals(challengeId).sortBy('createdAt');
   const sliced = rows.slice(-limit);
+  // Decrypt in chunks of 16 with a yield to the event loop between batches,
+  // so big histories never freeze the UI (>16ms input latency).
   const out: DecryptedMessage[] = [];
-  for (const r of sliced) {
-    try {
-      const content = await decryptString({ iv: r.iv, ct: r.ct });
-      out.push({ id: r.id!, challengeId: r.challengeId, role: r.role, content, createdAt: r.createdAt });
-    } catch {
-      // skip corrupted row
+  const CHUNK = 16;
+  for (let i = 0; i < sliced.length; i += CHUNK) {
+    const batch = sliced.slice(i, i + CHUNK);
+    const decoded = await Promise.all(
+      batch.map(async r => {
+        try {
+          const content = await decryptString({ iv: r.iv, ct: r.ct });
+          return { id: r.id!, challengeId: r.challengeId, role: r.role, content, createdAt: r.createdAt } as DecryptedMessage;
+        } catch {
+          return null;
+        }
+      }),
+    );
+    for (const d of decoded) if (d) out.push(d);
+    if (i + CHUNK < sliced.length) {
+      await new Promise(resolve => setTimeout(resolve, 0));
     }
   }
   return out;

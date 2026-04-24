@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { motion } from 'framer-motion';
-import { User, Globe, Check, Shield, AlertTriangle, Trash2, Cpu, Bell, Download, Upload, Heart } from 'lucide-react';
+import { User, Globe, Check, Shield, AlertTriangle, Trash2, Cpu, Bell, Download, Upload, Heart, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Lang, langNames } from '@/lib/i18n';
@@ -9,7 +9,10 @@ import {
   getPreferenceEncrypted,
   setPreferenceEncrypted,
   clearMessages,
+  getPreferenceRaw,
+  setPreferenceRaw,
 } from '@/lib/localdb/repository';
+import { hasHadiths } from '@/lib/hadith-bank';
 import { db } from '@/lib/localdb/db';
 import LocalAIStatus from '@/components/LocalAIStatus';
 import {
@@ -43,11 +46,22 @@ const SettingsPage = () => {
     preview: SiratPreview;
   } | null>(null);
 
+  // Spiritual identity
+  const [isMuslim, setIsMuslim] = useState(false);
+
   useEffect(() => {
     getPreferenceEncrypted('displayName').then(v => {
       if (v) setDisplayName(v);
     });
+    getPreferenceRaw<boolean>('isMuslim').then(v => setIsMuslim(!!v));
   }, []);
+
+  const handleToggleMuslim = async () => {
+    const next = !isMuslim;
+    setIsMuslim(next);
+    await setPreferenceRaw('isMuslim', next);
+    toast.success(t.saved);
+  };
 
   const handleSaveName = async () => {
     setSaving(true);
@@ -234,6 +248,45 @@ const SettingsPage = () => {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Spiritual identity */}
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+            <BookOpen className="w-4 h-4" />
+            {lang === 'ar' ? 'التوجيه الروحي' : 'Spiritual Guidance'}
+          </h3>
+          <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+            {lang === 'ar'
+              ? 'عند التفعيل، سيستشهد المرشد بأحاديث صحيحة من قاعدة بيانات محلية موثوقة فقط (البخاري ومسلم). يُمنع برمجياً تأليف أي حديث.'
+              : 'When enabled, the guide will only cite authenticated hadiths from a trusted local bank (Bukhari & Muslim). The AI is forbidden from inventing any narration.'}
+          </p>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-foreground">
+              {lang === 'ar' ? 'هل أنت مسلم؟' : 'Are you Muslim?'}
+            </span>
+            <button
+              onClick={handleToggleMuslim}
+              role="switch"
+              aria-checked={isMuslim}
+              className={`relative w-12 h-7 rounded-full transition-colors ${
+                isMuslim ? 'bg-primary' : 'bg-secondary border border-border'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 w-6 h-6 rounded-full bg-background shadow transition-transform ${
+                  isMuslim ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </div>
+          {isMuslim && !hasHadiths() && (
+            <p className="mt-3 text-xs text-warning leading-relaxed">
+              {lang === 'ar'
+                ? '⏳ قاعدة بيانات الأحاديث قيد الإعداد. الميزة مفعّلة لكن لن تُحقن أحاديث حتى تكتمل.'
+                : '⏳ Hadith bank is being prepared. The toggle is on, but no hadiths will be cited until it is filled.'}
+            </p>
+          )}
         </div>
 
         {/* Notifications */}

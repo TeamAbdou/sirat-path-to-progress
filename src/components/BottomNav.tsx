@@ -22,9 +22,11 @@ const BottomNav = () => {
           const isActive = location.pathname === tab.path ||
             (tab.path === '/chat' && location.pathname.startsWith('/chat'));
           return (
-            <button
+            <motion.button
               key={tab.path}
               onClick={() => navigate(tab.path)}
+              whileTap={{ scale: 0.92 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
               className="relative flex flex-col items-center gap-0.5 py-1.5 px-4 rounded-2xl transition-all"
             >
               {isActive && (
@@ -42,7 +44,7 @@ const BottomNav = () => {
               }`}>
                 {tab.label}
               </span>
-            </button>
+            </motion.button>
           );
         })}
       </div>
