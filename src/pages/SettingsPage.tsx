@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { motion } from 'framer-motion';
-import { User, Globe, Check, Shield, AlertTriangle, Trash2, Cpu, Bell, Download, Upload, Heart } from 'lucide-react';
+import { User, Globe, Check, Shield, AlertTriangle, Trash2, Cpu, Bell, Download, Upload, Heart, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Lang, langNames } from '@/lib/i18n';
@@ -9,7 +9,10 @@ import {
   getPreferenceEncrypted,
   setPreferenceEncrypted,
   clearMessages,
+  getPreferenceRaw,
+  setPreferenceRaw,
 } from '@/lib/localdb/repository';
+import { hasHadiths } from '@/lib/hadith-bank';
 import { db } from '@/lib/localdb/db';
 import LocalAIStatus from '@/components/LocalAIStatus';
 import {
@@ -43,11 +46,22 @@ const SettingsPage = () => {
     preview: SiratPreview;
   } | null>(null);
 
+  // Spiritual identity
+  const [isMuslim, setIsMuslim] = useState(false);
+
   useEffect(() => {
     getPreferenceEncrypted('displayName').then(v => {
       if (v) setDisplayName(v);
     });
+    getPreferenceRaw<boolean>('isMuslim').then(v => setIsMuslim(!!v));
   }, []);
+
+  const handleToggleMuslim = async () => {
+    const next = !isMuslim;
+    setIsMuslim(next);
+    await setPreferenceRaw('isMuslim', next);
+    toast.success(t.saved);
+  };
 
   const handleSaveName = async () => {
     setSaving(true);
