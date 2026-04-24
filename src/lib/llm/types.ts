@@ -22,6 +22,7 @@ export interface StreamOptions {
   onDelta: (chunk: string) => void;
   signal?: AbortSignal;
   includeProgress?: boolean;
+  challengeId?: string;
 }
 
 export interface AIProvider {

@@ -69,6 +69,7 @@ const streamChat = async ({
   onDelta,
   signal,
   includeProgress = true,
+  challengeId,
 }: StreamOptions): Promise<string> => {
   await ensure();
   const engine = engineInstance!;
@@ -78,7 +79,7 @@ const streamChat = async ({
   ];
   if (includeProgress) {
     try {
-      const ctx = await buildProgressContext();
+      const ctx = await buildProgressContext({ challengeId });
       systemMessages.push({ role: 'system', content: ctx });
     } catch {
       /* non-fatal */
@@ -91,25 +92,41 @@ const streamChat = async ({
   ];
 
   let full = '';
-  const stream = await engine.chat.completions.create({
-    messages: fullMessages,
-    stream: true,
-    temperature: 0.7,
-    max_tokens: 512,
-  });
+  try {
+    const stream = await engine.chat.completions.create({
+      messages: fullMessages,
+      stream: true,
+      temperature: 0.7,
+      max_tokens: 512,
+    });
 
-  for await (const chunk of stream as AsyncIterable<{
-    choices: { delta: { content?: string } }[];
-  }>) {
-    if (signal?.aborted) break;
-    const delta = chunk.choices?.[0]?.delta?.content;
-    if (delta) {
-      full += delta;
-      onDelta(delta);
+    for await (const chunk of stream as AsyncIterable<{
+      choices: { delta: { content?: string } }[];
+    }>) {
+      if (signal?.aborted) break;
+      const delta = chunk.choices?.[0]?.delta?.content;
+      if (delta) {
+        full += delta;
+        onDelta(delta);
+      }
     }
+  } finally {
+    // Prevent KV-cache from growing unbounded across long sessions.
+    // Each turn we re-send the full history, so resetting is safe.
+    try {
+      // @ts-expect-error - resetChat exists on engine but not always typed
+      if (typeof engine.resetChat === 'function') await engine.resetChat();
+    } catch { /* ignore */ }
   }
   return full;
 };
+
+// Free worker on tab teardown — avoids leaking the GPU context.
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', () => {
+    try { worker?.terminate(); } catch { /* ignore */ }
+  });
+}
 
 const unload = async (): Promise<void> => {
   try {

@@ -115,6 +115,7 @@ const ChatPage = () => {
         messages: apiMessages,
         onDelta: upsertAssistant,
         signal: controller.signal,
+        challengeId: cid,
       });
 
       if (assistantSoFar) {
