@@ -301,6 +301,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      award_badge: { Args: { _badge_id: string }; Returns: undefined }
       check_rate_limit: {
         Args: {
           _attempt_type: string
