@@ -23,7 +23,9 @@ const dayBefore = (key: string, delta: number) => {
 };
 
 beforeEach(async () => {
-  vi.useFakeTimers();
+  // Freeze only Date (not setTimeout/setInterval) so Dexie/IndexedDB
+  // microtasks keep flowing while todayKey() stays deterministic.
+  vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(FIXED_NOW);
   await db.dailyEntries.clear();
   await db.progress.clear();
