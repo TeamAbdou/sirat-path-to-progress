@@ -209,6 +209,7 @@ const SettingsPage = () => {
     }
   };
 
+  const langs: Lang[] = ['ar', 'en', 'fr', 'kab', 'zh'];
 
   return (
     <div className="container mx-auto px-4 py-8 pb-24">
