@@ -192,7 +192,23 @@ const SettingsPage = () => {
     }
   };
 
-  const langs: Lang[] = ['ar', 'en', 'fr', 'kab', 'zh'];
+  const handleEnableDemo = async () => {
+    const msg = lang === 'ar'
+      ? 'سيُستبدل محتواك الحالي ببيانات عرض تجريبية. متابعة؟'
+      : 'Your current data will be replaced with demo data. Continue?';
+    if (!window.confirm(msg)) return;
+    try {
+      setBusy(true);
+      await enableDemoMode();
+      toast.success(lang === 'ar' ? 'تم تفعيل وضع العرض ✨' : 'Demo mode enabled ✨');
+      setTimeout(() => window.location.reload(), 600);
+    } catch {
+      toast.error(lang === 'ar' ? 'فشل تفعيل وضع العرض.' : 'Failed to enable demo mode.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
 
   return (
     <div className="container mx-auto px-4 py-8 pb-24">
