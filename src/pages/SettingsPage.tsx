@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { motion } from 'framer-motion';
-import { User, Globe, Check, Shield, AlertTriangle, Trash2, Cpu, Bell, Download, Upload, Heart, BookOpen } from 'lucide-react';
+import { User, Globe, Check, Shield, AlertTriangle, Trash2, Cpu, Bell, Download, Upload, Heart, BookOpen, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Lang, langNames } from '@/lib/i18n';
@@ -25,6 +25,7 @@ import {
   NOTIF_DEFAULT_TIME,
 } from '@/lib/notifications';
 import { exportSirat, importSirat, peekSirat, type SiratPreview } from '@/lib/sirat-file';
+import { enableDemoMode } from '@/lib/demo-mode';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 const SettingsPage = () => {
