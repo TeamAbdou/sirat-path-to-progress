@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { motion } from 'framer-motion';
-import { User, Globe, Check, Shield, AlertTriangle, Trash2, Cpu, Bell, Download, Upload, Heart, BookOpen } from 'lucide-react';
+import { User, Globe, Check, Shield, AlertTriangle, Trash2, Cpu, Bell, Download, Upload, Heart, BookOpen, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Lang, langNames } from '@/lib/i18n';
@@ -25,6 +25,7 @@ import {
   NOTIF_DEFAULT_TIME,
 } from '@/lib/notifications';
 import { exportSirat, importSirat, peekSirat, type SiratPreview } from '@/lib/sirat-file';
+import { enableDemoMode } from '@/lib/demo-mode';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 const SettingsPage = () => {
@@ -186,6 +187,23 @@ const SettingsPage = () => {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Import failed.';
       toast.error(msg);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleEnableDemo = async () => {
+    const msg = lang === 'ar'
+      ? 'سيُستبدل محتواك الحالي ببيانات عرض تجريبية. متابعة؟'
+      : 'Your current data will be replaced with demo data. Continue?';
+    if (!window.confirm(msg)) return;
+    try {
+      setBusy(true);
+      await enableDemoMode();
+      toast.success(lang === 'ar' ? 'تم تفعيل وضع العرض ✨' : 'Demo mode enabled ✨');
+      setTimeout(() => window.location.reload(), 600);
+    } catch {
+      toast.error(lang === 'ar' ? 'فشل تفعيل وضع العرض.' : 'Failed to enable demo mode.');
     } finally {
       setBusy(false);
     }
@@ -399,7 +417,27 @@ const SettingsPage = () => {
           </div>
         </div>
 
-        {/* Privacy / wipe */}
+        {/* Demo Mode */}
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+            <Sparkles className="w-4 h-4" />
+            {lang === 'ar' ? 'وضع العرض' : 'Demo Mode'}
+          </h3>
+          <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+            {lang === 'ar'
+              ? 'يملأ التطبيق ببيانات تجريبية واقعية (٢١ يوماً، شارات، اسم) لعرض المشروع. سيستبدل بياناتك الحالية.'
+              : 'Fills the app with realistic demo data (21 days, badges, name) for presentations. Replaces your current data.'}
+          </p>
+          <button
+            onClick={handleEnableDemo}
+            disabled={busy}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm font-medium hover:bg-primary/20 transition-colors disabled:opacity-50"
+          >
+            <Sparkles className="w-4 h-4" />
+            {lang === 'ar' ? 'تفعيل وضع العرض' : 'Enable Demo Mode'}
+          </button>
+        </div>
+
         <div className="bg-card border border-border rounded-2xl p-5">
           <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
             <Shield className="w-4 h-4" />
