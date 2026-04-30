@@ -417,7 +417,27 @@ const SettingsPage = () => {
           </div>
         </div>
 
-        {/* Privacy / wipe */}
+        {/* Demo Mode */}
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+            <Sparkles className="w-4 h-4" />
+            {lang === 'ar' ? 'وضع العرض' : 'Demo Mode'}
+          </h3>
+          <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+            {lang === 'ar'
+              ? 'يملأ التطبيق ببيانات تجريبية واقعية (٢١ يوماً، شارات، اسم) لعرض المشروع. سيستبدل بياناتك الحالية.'
+              : 'Fills the app with realistic demo data (21 days, badges, name) for presentations. Replaces your current data.'}
+          </p>
+          <button
+            onClick={handleEnableDemo}
+            disabled={busy}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm font-medium hover:bg-primary/20 transition-colors disabled:opacity-50"
+          >
+            <Sparkles className="w-4 h-4" />
+            {lang === 'ar' ? 'تفعيل وضع العرض' : 'Enable Demo Mode'}
+          </button>
+        </div>
+
         <div className="bg-card border border-border rounded-2xl p-5">
           <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
             <Shield className="w-4 h-4" />
