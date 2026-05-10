@@ -121,16 +121,18 @@ const MicButton = ({ onVoiceTranscript, hint, size = 'md', inline = false }: Mic
         </button>
       </div>
 
-      {recording && analyser && (
+      {!inline && recording && analyser && (
         <Waveform analyser={analyser} className="rounded-md bg-primary/5" />
       )}
 
-      <p className="text-[10px] text-muted-foreground text-center max-w-[14rem] leading-tight">
-        {hint ??
-          (isAr
-            ? 'المعالجة الصوتية تتم محلياً 100%، لا يتم تسجيل أو إرسال صوتك.'
-            : '100% local processing — your voice is never recorded or uploaded.')}
-      </p>
+      {!inline && (
+        <p className="text-[10px] text-muted-foreground text-center max-w-[14rem] leading-tight">
+          {hint ??
+            (isAr
+              ? 'المعالجة الصوتية تتم محلياً 100%، لا يتم تسجيل أو إرسال صوتك.'
+              : '100% local processing — your voice is never recorded or uploaded.')}
+        </p>
+      )}
     </div>
   );
 };

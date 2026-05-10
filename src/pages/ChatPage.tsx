@@ -209,7 +209,7 @@ const ChatPage = () => {
         <div className="flex items-center gap-2 bg-card border border-border rounded-2xl px-4 py-2">
           <MicButton
             size="sm"
-            hint=""
+            inline
             onVoiceTranscript={(text) => {
               if (text) setInput((prev) => (prev ? `${prev} ${text}` : text));
             }}
