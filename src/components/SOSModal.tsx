@@ -2,6 +2,7 @@ import { useApp } from '@/contexts/AppContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Phone, MessageCircle, Wind, X, Heart, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import MicButton from '@/components/voice/MicButton';
 
 interface SOSModalProps {
   open: boolean;
@@ -104,6 +105,10 @@ const SOSModal = ({ open, onClose }: SOSModalProps) => {
                   </p>
                 </div>
               </button>
+            </div>
+
+            <div className="mt-4 flex justify-center">
+              <MicButton size="sm" />
             </div>
 
             <button
