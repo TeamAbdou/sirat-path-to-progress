@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import SOSModal from '@/components/SOSModal';
 import QuickReplies from '@/components/QuickReplies';
 import LocalAIStatus from '@/components/LocalAIStatus';
+import MicButton from '@/components/voice/MicButton';
 import { addMessage, listMessages } from '@/lib/localdb/repository';
 import { streamChat, ensureEngine, isWebGPUAvailable } from '@/lib/llm/engine';
 
@@ -204,8 +205,15 @@ const ChatPage = () => {
         onSelect={(text) => handleSend(text)}
       />
 
-      <div className="px-4 py-3 border-t border-border">
+      <div className="px-4 py-3 border-t border-border space-y-2">
         <div className="flex items-center gap-2 bg-card border border-border rounded-2xl px-4 py-2">
+          <MicButton
+            size="sm"
+            inline
+            onVoiceTranscript={(text) => {
+              if (text) setInput((prev) => (prev ? `${prev} ${text}` : text));
+            }}
+          />
           <input
             value={input}
             onChange={e => setInput(e.target.value)}
