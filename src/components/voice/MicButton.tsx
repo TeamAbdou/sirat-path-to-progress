@@ -12,6 +12,8 @@ interface MicButtonProps {
   /** Optional override label shown under the button. */
   hint?: string;
   size?: 'sm' | 'md';
+  /** When true, only the button + pulse render (no waveform / hint text). */
+  inline?: boolean;
 }
 
 /**
@@ -21,7 +23,7 @@ interface MicButtonProps {
  * Tomorrow: hand the captured Float32 buffer to the lean tAI STT engine,
  *           then call `onVoiceTranscript(text)`.
  */
-const MicButton = ({ onVoiceTranscript, hint, size = 'md' }: MicButtonProps) => {
+const MicButton = ({ onVoiceTranscript, hint, size = 'md', inline = false }: MicButtonProps) => {
   const { lang } = useApp();
   const isAr = lang === 'ar';
   const [recording, setRecording] = useState(false);
