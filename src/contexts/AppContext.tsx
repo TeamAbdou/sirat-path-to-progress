@@ -22,7 +22,7 @@ export const useApp = () => {
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [lang, setLangState] = useState<Lang>(() => {
-    return (localStorage.getItem('sirat-lang') as Lang) || 'ar';
+    return (localStorage.getItem('sirat-lang') as Lang) || 'en';
   });
   const [theme, setTheme] = useState<Theme>(() => {
     return (localStorage.getItem('sirat-theme') as Theme) || 'dark';
