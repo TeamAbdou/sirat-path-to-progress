@@ -1,0 +1,24 @@
+# IqlaDIM Local Server — install with:
+#   pip install -r requirements.txt
+#
+# NOTE: per tAI directive, transformers/peft/accelerate are pulled from
+# GitHub main to guarantee Gemma-family architecture support.
+
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2.5
+python-multipart>=0.0.9
+
+# Torch — install the right CUDA build for your machine first:
+#   https://pytorch.org/get-started/locally/
+torch>=2.2
+
+# Bleeding-edge HF stack (Gemma 2 / Gemma 3 / future Gemma 4 support)
+git+https://github.com/huggingface/transformers.git
+git+https://github.com/huggingface/peft.git
+git+https://github.com/huggingface/accelerate.git
+sentencepiece>=0.2.0
+safetensors>=0.4.2
+
+# Whisper STT (local, no API key)
+openai-whisper>=20231117
